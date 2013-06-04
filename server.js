@@ -16,7 +16,7 @@ var result = bencode.decode(torrentFile.toString('binary'));
 var infoHash = createSHA1(bencode.encode(result.info));
 infoHash = escape(infoHash);
 
-console.log(result['announce-list']);
+console.log(infoHash);
 
 var uri = result.announce + '?';
 var query = {
@@ -38,13 +38,15 @@ for (var key in query){
 console.log(uri);
 
 request({
-  uri: uri
+  uri: uri,
+  encoding: null
 }, function(error, response, body){
   console.log('error: ', error);
   console.log('response: ', error);
   if (!error){
     ip = ip;
-    var decodedBody = bencode.decode(body, 'binary');
+    debugger;
+    var decodedBody = bencode.decode(body.toString('binary'));
     console.log(decodedBody[0].peers);
     debugger;
     console.log('body: ', bencode.decode(body, 'binary'));
