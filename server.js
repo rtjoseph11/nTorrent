@@ -1,4 +1,4 @@
-var bencode = require('./bcode');
+var bencode = require('bencode');
 var fs = require('fs');
 var crypto = require('crypto');
 var url = require('url');
@@ -9,10 +9,10 @@ var createSHA1 = function(string){
 };
 
 var torrentFile = new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent'));
+debugger;
+var torrent = bencode.decode(torrentFile);
 
-var result = bencode.decode(torrentFile.toString('binary'));
-
-var infoHash = createSHA1(bencode.encode(result.info));
+var infoHash = createSHA1(bencode.encode(torrent.info));
 infoHash = escape(infoHash);
 
 console.log(result['announce-list']);
@@ -39,9 +39,12 @@ console.log(uri);
 request({
   uri: uri
 }, function(error, response, body){
-  console.log('error: ', error);
-  console.log('response: ', error);
   if (!error){
-    console.log('body: ', bencode.decode(body, 'binary'));
+    // var bodyObj = bencode.decode(new Buffer(body));
+    debugger;
+    console.log(body);
+    // for (var i = 0; i < bodyObj.peers.length; i++){
+      // console.log('peers(' + i + '): ', bodyObj.peers[i]);
+    // }
   }
 });
