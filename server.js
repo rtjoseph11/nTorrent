@@ -9,7 +9,7 @@ var createSHA1 = function(string){
   return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
 };
 
-var torrentFile = new Buffer(fs.readFileSync(__dirname + '/testdata/Ubuntu.torrent'));
+var torrentFile = new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent'));
 
 var result = bencode.decode(torrentFile.toString('binary'));
 
@@ -44,11 +44,11 @@ request({
   console.log('error: ', error);
   console.log('response: ', error);
   if (!error){
-    ip = ip;
-    debugger;
-    var decodedBody = bencode.decode(body.toString('binary'));
-    console.log(decodedBody[0].peers);
-    debugger;
-    console.log('body: ', bencode.decode(body, 'binary'));
+    // ip = ip;
+    // debugger;
+    // var decodedBody = bencode.decode(body.toString('binary'));
+    // console.log(decodedBody[0].peers);
+    // debugger;
+    // console.log('body: ', bencode.decode(body, 'binary'));
   }
 });
