@@ -8,11 +8,11 @@ var createSHA1 = function(string){
   return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
 };
 
-var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/Ubuntu.torrent')));
+var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent')));
 var infoHash = createSHA1(bencode.encode(torrent.info));
 infoHash = escape(infoHash);
 
-
+console.log(infoHash);
 var uri = torrent.announce.toString('binary') + '?';
 var query = {
     info_hash: infoHash,
@@ -40,9 +40,8 @@ request({
   if (!error){
     var bodyObj = bencode.decode(body);
     console.log(bodyObj);
-    debugger;
-    for (var i = 0; i < bodyObj.peers.toString('binary').length; i++){
-      console.log('peers(' + i + '): ', bodyObj.peers[i]);
-    }
+    // for (var i = 0; i < bodyObj.peers.toString('binary').length; i++){
+    //   console.log('peers(' + i + '): ', bodyObj.peers[i]);
+    // }
   }
 });
