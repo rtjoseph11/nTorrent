@@ -9,15 +9,13 @@ var createSHA1 = function(string){
 };
 
 var torrentFile = new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent'));
+var torrent = bencode.decode(torrentFile, 'binary');
 debugger;
-var torrent = bencode.decode(torrentFile);
-
 var infoHash = createSHA1(bencode.encode(torrent.info));
 infoHash = escape(infoHash);
 
-console.log(result['announce-list']);
 
-var uri = result.announce + '?';
+var uri = torrent.announce + '?';
 var query = {
     info_hash: infoHash,
     peer_id: '-CT0000-111111111111' ,
@@ -35,6 +33,7 @@ for (var key in query){
 
 
 console.log(uri);
+debugger;
 
 request({
   uri: uri
