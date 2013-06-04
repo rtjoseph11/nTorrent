@@ -8,14 +8,12 @@ var createSHA1 = function(string){
   return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
 };
 
-var torrentFile = new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent'));
-var torrent = bencode.decode(torrentFile, 'binary');
-debugger;
+var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/Ubuntu.torrent')));
 var infoHash = createSHA1(bencode.encode(torrent.info));
 infoHash = escape(infoHash);
 
 
-var uri = torrent.announce + '?';
+var uri = torrent.announce.toString('binary') + '?';
 var query = {
     info_hash: infoHash,
     peer_id: '-CT0000-111111111111' ,
@@ -33,17 +31,18 @@ for (var key in query){
 
 
 console.log(uri);
-debugger;
+
 
 request({
-  uri: uri
+  uri: uri,
+  encoding: null
 }, function(error, response, body){
   if (!error){
-    // var bodyObj = bencode.decode(new Buffer(body));
+    var bodyObj = bencode.decode(body);
+    console.log(bodyObj);
     debugger;
-    console.log(body);
-    // for (var i = 0; i < bodyObj.peers.length; i++){
-      // console.log('peers(' + i + '): ', bodyObj.peers[i]);
-    // }
+    for (var i = 0; i < bodyObj.peers.toString('binary').length; i++){
+      console.log('peers(' + i + '): ', bodyObj.peers[i]);
+    }
   }
 });
