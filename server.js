@@ -3,12 +3,13 @@ var fs = require('fs');
 var crypto = require('crypto');
 var url = require('url');
 var request = require('request');
+var ip = require('ip');
 
 var createSHA1 = function(string){
   return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
 };
 
-var torrentFile = new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent'));
+var torrentFile = new Buffer(fs.readFileSync(__dirname + '/testdata/Ubuntu.torrent'));
 
 var result = bencode.decode(torrentFile.toString('binary'));
 
@@ -42,6 +43,10 @@ request({
   console.log('error: ', error);
   console.log('response: ', error);
   if (!error){
+    ip = ip;
+    var decodedBody = bencode.decode(body, 'binary');
+    console.log(decodedBody[0].peers);
+    debugger;
     console.log('body: ', bencode.decode(body, 'binary'));
   }
 });
