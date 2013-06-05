@@ -1,0 +1,10 @@
+{
+  "name" : "nTorrent",
+  "description" : "BitTorrent client in node.js",
+  "version" : "0.0.1",
+  "private" : true,
+  "dependencies" : {
+    "bencode" : "0.4.3",
+    "request" : "2.21.0"
+  }
+}

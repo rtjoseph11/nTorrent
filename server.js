@@ -31,8 +31,7 @@ for (var key in query){
 
 var peerCreator = require('./peer')(infoHash, clientID);
 
-console.log(uri);
-
+//need to add a listener for unprompted connections ... ie a peer wants to connect to me
 var peers = [];
 
 request({
@@ -47,8 +46,6 @@ request({
       index = index + 6;
     }
     console.log('trying to connect to: ', peers[0]);
-    console.log(peers);
-    debugger;
     peers[peers.length - 1].connect();
   }
 });
