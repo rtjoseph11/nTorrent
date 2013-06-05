@@ -6,12 +6,14 @@ var request = require('request');
 var ip = require('ip');
 var peer = require('./peer');
 
+
 var createSHA1 = function(string){
   return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
 };
 
 var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/linuxmint.torrent')));
 var infoHash = createSHA1(bencode.encode(torrent.info));
+
 infoHash = escape(infoHash);
 
 console.log(infoHash);
@@ -48,6 +50,5 @@ request({
       index = index + 6;
     }
     peers = peers;
-    debugger;
   }
 });
