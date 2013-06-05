@@ -49,6 +49,6 @@ request({
       peers.push(new peer.peer(bodyObj.peers.slice(index, index + 6)));
       index = index + 6;
     }
-    peers = peers;
+    console.log(peers);
   }
 });
