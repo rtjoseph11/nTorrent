@@ -3,12 +3,14 @@ var fs = require('fs');
 var crypto = require('crypto');
 var url = require('url');
 var request = require('request');
+var ip = require('ip');
+var peer = require('./peer');
 
 var createSHA1 = function(string){
   return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
 };
 
-var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent')));
+var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/linuxmint.torrent')));
 var infoHash = createSHA1(bencode.encode(torrent.info));
 infoHash = escape(infoHash);
 
@@ -32,6 +34,7 @@ for (var key in query){
 
 console.log(uri);
 
+var peers = [];
 
 request({
   uri: uri,
@@ -39,9 +42,12 @@ request({
 }, function(error, response, body){
   if (!error){
     var bodyObj = bencode.decode(body);
-    console.log(bodyObj);
-    // for (var i = 0; i < bodyObj.peers.toString('binary').length; i++){
-    //   console.log('peers(' + i + '): ', bodyObj.peers[i]);
-    // }
+    var index = 0;
+    while (index < bodyObj.peers.length){
+      peers.push(new peer.peer(bodyObj.peers.slice(index, index + 6)));
+      index = index + 6;
+    }
+    peers = peers;
+    debugger;
   }
 });
