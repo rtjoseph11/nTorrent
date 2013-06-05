@@ -20,6 +20,7 @@ peerObj.Peer.prototype.connect = function(){
   self.connection = new net.Socket();
   self.connection.connect(this.port, this.ip, function(){
      console.log('connected to: ' + self.ip + ':' + self.port);
+     console.log(messages.handshake(infoHash, clientID));
      self.connection.write(messages.handshake(infoHash, clientID), function(){
       console.log('wrote handshake!');
      });
