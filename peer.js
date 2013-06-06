@@ -18,27 +18,31 @@ peerObj.Peer = function(buffer){
 
 peerObj.Peer.prototype.connect = function(){
   self = this;
+  self.hasHandshake = false;
   self.connection = new net.Socket();
-  self.connection.connect(this.port, this.ip);
+  self.connection.connect(self.port, self.ip);
   var messageParser = new MessageParser.Parser();
+
   self.connection.on('data', function(chunk){
     console.log('data chunk: ', chunk);
-    messageParser.consume(chunk);
+    messageParser.enqueue(chunk);
   });
+
   self.connection.on('connect', function(){
     self.isConnected = true;
-    self.hasHandshake = false;
     console.log('the connection listener works!');
     console.log('connected to: ' + self.ip + ':' + self.port);
-    console.log(messages.handshake(infoHash, clientID));
-    self.connection.write(messages.handshake(infoHash, clientID), function(){
+    console.log(messages.generateHandshake(self));
+    self.connection.write(messages.generateHandshake(self), function(){
       console.log('wrote handshake!');
     });
   });
+
   self.connection.on('timeout', function(){
     console.log('timeout!');
     self.connection.end();
   });
+
   self.connection.on('close', function(had_error){
     if (had_error){
       self.connectionError = true;
@@ -48,6 +52,7 @@ peerObj.Peer.prototype.connect = function(){
       console.log('connection closed!');
     }
   });
+
   self.connection.on('error', function(exception){
     self.connectionError = true;
     self.isConnected = false;

@@ -4,17 +4,20 @@ var crypto = require('crypto');
 var url = require('url');
 var request = require('request');
 
-
+//need to change createSHA1 to deal with buffers
 var createSHA1 = function(string){
   return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
 };
 
+//need to change the readfile to take a CLI argument rather than a harcoded string
 var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent')));
 var infoHash = createSHA1(bencode.encode(torrent.info));
 var clientID = '-CT0000-111111111111';
 var escapedInfoHash = escape(infoHash);
 
 var uri = torrent.announce.toString('binary') + '?';
+
+//need to actually calculate peer_id, uploaded,downloaded, and left
 var query = {
     info_hash: escapedInfoHash,
     peer_id: clientID,
