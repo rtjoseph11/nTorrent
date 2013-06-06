@@ -30,7 +30,21 @@ exports.Parser.prototype.consume = function(buffer){
           throw new Error('tried to pass too many bytes into the partial message');
         }
         messages.consumeHandshake(this.partialMessage.data, this.connection);
-        delete this.partialMessage;
+        this.partialMessage = undefined;
+      } else if (this.partialMessage.currentLength + buffer.length > 68){
+        var used = this.partialMessage.data.length - this.partialMessage.currentLength;
+        buffer.copy(this.partialMessage.data, this.partialMessage.currentLength, 0, used);
+        this.currentLength += used;
+        if (this.partialMessage.currentLength > 68){
+          throw new Error('tried to pass too many bytes into the partial message');
+        }
+        messages.consumeHandshake(this.partialMessage.data.length, this.connection);
+        this.partialMessage = undefined;
+        this.consume(buffer.slice(used));
+      } else {
+        //buffer + current length < 68
+        buffer.copy(this.partialMessage.data, this.partialMessage.currentLength, 0);
+        this.partialMessage.currentLength += buffer.length;
       }
     } else {
       //hardcoding to 68 bytes since that matches the handshake I am sending out.. need to generalize
