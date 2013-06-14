@@ -21,7 +21,7 @@ peerObj.Peer.prototype.connect = function(){
   self.hasHandshake = false;
   self.connection = new net.Socket();
   self.connection.connect(self.port, self.ip);
-  var messageParser = new MessageParser.Parser();
+  var messageParser = new MessageParser.Parser(self, infoHash);
 
   self.connection.on('data', function(chunk){
     console.log('data chunk: ', chunk);
@@ -30,10 +30,9 @@ peerObj.Peer.prototype.connect = function(){
 
   self.connection.on('connect', function(){
     self.isConnected = true;
-    console.log('the connection listener works!');
     console.log('connected to: ' + self.ip + ':' + self.port);
-    console.log(messages.generateHandshake(self));
-    self.connection.write(messages.generateHandshake(self), function(){
+    console.log(messages.generateHandshake(infoHash, clientID));
+    self.connection.write(messages.generateHandshake(infoHash, clientID), function(){
       console.log('wrote handshake!');
     });
   });
