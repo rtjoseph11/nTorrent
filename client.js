@@ -3,6 +3,7 @@ var fs = require('fs');
 var crypto = require('crypto');
 var url = require('url');
 var request = require('request');
+var messages = require('./messages');
 
 //need to change createSHA1 to deal with buffers
 var createSHA1 = function(info){
@@ -33,7 +34,7 @@ for (var key in query){
   uri += key + "=" + query[key] + "&";
 }
 
-var peerCreator = require('./peer')(infoHash, clientID);
+var peerCreator = require('./peer')(infoHash, clientID, messages);
 
 //need to add a listener for unprompted connections ... ie a peer wants to connect to me
 var peers = [];
