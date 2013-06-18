@@ -2,20 +2,12 @@ var net = require('net');
 var events = require('events');
 var util = require('util');
 var MessageParser = require('./messageParser');
-var peerObj = {};
 var infoHash;
 var clientID;
 var messages;
 var id = 0;
 
-module.exports = function(_infoHash, _clientID, _messages){
-  infoHash = _infoHash;
-  clientID = _clientID;
-  messages = _messages;
-  return peerObj;
-};
-
-peerObj.Peer = function(buffer){
+var Peer = function(buffer){
   events.EventEmitter.call(this);
   this.ip = buffer[0] + '.' + buffer[1] + '.' + buffer[2] + '.' + buffer[3];
   this.port = buffer.readUInt16BE(4);
@@ -23,12 +15,13 @@ peerObj.Peer = function(buffer){
   this.amInterested = false;
   this.choking = true;
   this.interested = false;
+  this.assignedPiece = null;
   this.id = ++id;
 };
 
-util.inherits(peerObj.Peer, events.EventEmitter);
+util.inherits(Peer, events.EventEmitter);
 
-peerObj.Peer.prototype.connect = function(){
+Peer.prototype.connect = function(){
   self = this;
   self.hasHandshake = false;
   self.connection = new net.Socket();
@@ -36,6 +29,7 @@ peerObj.Peer.prototype.connect = function(){
   var messageParser = require('./messageParser')(self, infoHash, messages);
 
   self.connection.on('data', function(chunk){
+    console.log('data received from peer ', self.id);
     messageParser.consume(chunk);
   });
 
@@ -70,10 +64,35 @@ peerObj.Peer.prototype.connect = function(){
   });
 };
 
-peerObj.Peer.prototype.disconnect = function(){
+Peer.prototype.disconnect = function(){
   if(this.connection){
     this.isConnected = false;
     this.hasHandshake = false;
     this.connection.end();
   }
+};
+
+Peer.prototype.generateBitField = function(bitBuffer){
+  this.bitField = [];
+  for (var i = 0; i < bitBuffer.length; i++){
+    for (var j = 0; j < bitBuffer[i].toString(2).length; j++){
+      this.bitField.push(bitBuffer[i].toString(2)[j] === "1" ? true : false);
+    }
+  }
+  this.emit('bitField', this);
+};
+
+Peer.prototype.getPiece = function(){
+  if (! this.assignedPiece){
+    throw new Error('peer told to get a piece when no piece is assigned');
+  } else {
+    this.connection.write(messages.generateRequest(this.assignedPiece));
+  }
+};
+
+module.exports = function(_infoHash, _clientID, _messages){
+  infoHash = _infoHash;
+  clientID = _clientID;
+  messages = _messages;
+  return Peer;
 };

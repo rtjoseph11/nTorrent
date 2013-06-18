@@ -1,7 +1,6 @@
 
 var parser = {};
 parser.consume = function(buffer){
-  debugger;
   var used;
   if (peer.hasHandshake){
     if (this.partialMessage){
@@ -13,6 +12,7 @@ parser.consume = function(buffer){
         buffer.copy(this.partialMessage.data, this.partialMessage.currentLength, 0, used);
         this.partialMessage.currentLength += used;
         messages.consumeMessage(this.partialMessage, peer);
+        this.partialMessage = undefined;
         if (used < buffer.length){
           this.consume(buffer.slice(used));
         }
@@ -68,6 +68,10 @@ parser.consume = function(buffer){
             this.consume(buffer.slice(4 + used));
           } else {
             this.partialMessage.currentLength = buffer.length - 4;
+            if (this.partialMessage.currentLength === this.partialMessage.data.length){
+              messages.consumeMessage(this.partialMessage, peer);
+              this.partialMessage = undefined;
+            }
           }
         }
       }

@@ -35,7 +35,7 @@ exports.consumeMessage = function(message, peer){
       case 1:
       //unchoke
       peer.choking = false;
-      console.log('peer ', peer.id , ' is now unchoked');
+      console.log('peer ', peer.id , ' is no longer choking the client');
       break;
       case 2:
       //interested
@@ -54,6 +54,7 @@ exports.consumeMessage = function(message, peer){
       case 5:
       //bitfield
       console.log('peer ', peer.id , ' sent a bitfield');
+      peer.generateBitField(message.data.slice(1));
       break;
       case 6:
       //request
