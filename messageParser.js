@@ -1,8 +1,13 @@
 
-var parser = {};
-parser.consume = function(buffer){
+module.exports = function(peer, infoHash, messages){
+  this.peer = peer;
+  this.infoHash = infoHash;
+  this.messages = messages;
+};
+
+module.exports.prototype.consume = function(buffer){
   var used;
-  if (peer.hasHandshake){
+  if (this.peer.hasHandshake){
     if (this.partialMessage){
       if (buffer.length + this.partialMessage.currentLength < this.partialMessage.data.length){
         buffer.copy(this.partialMessage.data, this.partialMessage.currentLength);
@@ -11,7 +16,7 @@ parser.consume = function(buffer){
         used = this.partialMessage.data.length - this.partialMessage.currentLength;
         buffer.copy(this.partialMessage.data, this.partialMessage.currentLength, 0, used);
         this.partialMessage.currentLength += used;
-        messages.consumeMessage(this.partialMessage, peer);
+        this.messages.consumeMessage(this.partialMessage, this.peer);
         this.partialMessage = undefined;
         if (used < buffer.length){
           this.consume(buffer.slice(used));
@@ -50,7 +55,7 @@ parser.consume = function(buffer){
           };
           if (this.partialMessage.data.length === this.partialMessage.currentLength){
             //keep alive message
-            messages.consumeMessage(this.partialMessage, peer);
+            this.messages.consumeMessage(this.partialMessage, this.peer);
             this.partialMessage = undefined;
           }
         }
@@ -63,13 +68,13 @@ parser.consume = function(buffer){
           if (buffer.length - 4 > this.partialMessage.data.length){
             used = this.partialMessage.data.length;
             this.partialMessage.currentLength = this.partialMessage.data.length;
-            messages.consumeMessage(this.partialMessage, peer);
+            this.messages.consumeMessage(this.partialMessage, this.peer);
             this.partialMessage = undefined;
             this.consume(buffer.slice(4 + used));
           } else {
             this.partialMessage.currentLength = buffer.length - 4;
             if (this.partialMessage.currentLength === this.partialMessage.data.length){
-              messages.consumeMessage(this.partialMessage, peer);
+              this.messages.consumeMessage(this.partialMessage, this.peer);
               this.partialMessage = undefined;
             }
           }
@@ -85,7 +90,7 @@ parser.consume = function(buffer){
         if (this.partialMessage.currentLength > 68){
           throw new Error('tried to pass too many bytes into the partial message');
         }
-        messages.consumeHandshake(this.partialMessage.data, infoHash, peer);
+        this.messages.consumeHandshake(this.partialMessage.data, this.infoHash, this.peer);
         this.partialMessage = undefined;
       } else if (this.partialMessage.currentLength + buffer.length > 68){
         used = this.partialMessage.data.length - this.partialMessage.currentLength;
@@ -94,7 +99,7 @@ parser.consume = function(buffer){
         if (this.partialMessage.currentLength > 68){
           throw new Error('tried to pass too many bytes into the partial message');
         }
-        messages.consumeHandshake(this.partialMessage.data, infoHash, peer);
+        this.messages.consumeHandshake(this.partialMessage.data, this.infoHash, this.peer);
         this.partialMessage = undefined;
         this.consume(buffer.slice(used));
       } else {
@@ -105,9 +110,9 @@ parser.consume = function(buffer){
     } else {
       //hardcoding to 68 bytes since that matches the handshake I am sending out.. need to generalize
       if (buffer.length === 68){
-        messages.consumeHandshake(buffer, infoHash, peer);
+        this.messages.consumeHandshake(buffer, this.infoHash, this.peer);
       } else if (buffer.length > 68){
-        messages.consumeHandshake(buffer.slice(0,68), infoHash, peer);
+        this.messages.consumeHandshake(buffer.slice(0,68), this.infoHash, this.peer);
         this.consume(buffer.slice(68));
       } else {
         //buffer has less than 68 bytes
@@ -120,13 +125,4 @@ parser.consume = function(buffer){
       }
     }
   }
-};
-var peer;
-var infoHash;
-var messages;
-module.exports = function(_peer, _infoHash, _messages){
-  peer = _peer;
-  infoHash = _infoHash;
-  messages = _messages;
-  return parser;
 };

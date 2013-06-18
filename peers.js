@@ -19,3 +19,11 @@ module.exports.prototype.length = function(){
 module.exports.prototype.maxPeer = function(){
   return storage[maxPeerID];
 };
+
+module.exports.prototype.connect = function(){
+  for (var i = 0; i < storage.length; i++){
+    if(storage[i]){
+      storage[i].connect();
+    }
+  }
+};

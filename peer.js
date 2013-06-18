@@ -22,22 +22,21 @@ var Peer = function(buffer){
 util.inherits(Peer, events.EventEmitter);
 
 Peer.prototype.connect = function(){
-  self = this;
+  var self = this;
   self.hasHandshake = false;
   self.connection = new net.Socket();
   self.connection.connect(self.port, self.ip);
-  var messageParser = require('./messageParser')(self, infoHash, messages);
+  var messageParser = new MessageParser(self, infoHash, messages);
 
   self.connection.on('data', function(chunk){
-    console.log('data received from peer ', self.id);
     messageParser.consume(chunk);
   });
 
   self.connection.on('connect', function(){
     self.isConnected = true;
-    console.log('connected to: ' + self.ip + ':' + self.port);
+    console.log('connected to peer ', self.id ,': ' + self.ip + ':' + self.port);
     self.connection.write(messages.generateHandshake(infoHash, clientID), function(){
-      console.log('wrote handshake!');
+      console.log('wrote handshake to peer ', self.id ,'!');
     });
   });
 
@@ -49,9 +48,9 @@ Peer.prototype.connect = function(){
   self.connection.on('close', function(hadError){
     if (hadError){
       self.connectionError = true;
-      console.log('connection closed due to error');
+      console.log('peer ', self.id, ' connection closed due to error');
     } else {
-      console.log('connection closed!');
+      console.log('peer ', self.id, ' connection closed!');
     }
       self.disconnect();
   });
@@ -60,7 +59,7 @@ Peer.prototype.connect = function(){
     self.connectionError = true;
     self.isConnected = false;
     self.hasHandshake = false;
-    console.log('Exception: ', exception);
+    console.log('peer ', self.id, ' Exception: ', exception);
   });
 };
 
@@ -83,11 +82,17 @@ Peer.prototype.generateBitField = function(bitBuffer){
 };
 
 Peer.prototype.getPiece = function(){
-  if (! this.assignedPiece){
-    throw new Error('peer told to get a piece when no piece is assigned');
+  if (! this.assignedPiece || this.choking || ! this.isConnected || ! this.hasHandshake){
+    throw new Error('peer told to get a piece when it shouldnt have been');
   } else {
+    console.log('trying to get piece ', this.assignedPiece.index);
     this.connection.write(messages.generateRequest(this.assignedPiece));
   }
+};
+
+Peer.prototype.unchoke = function(){
+  this.choking = false;
+  this.emit('unchoke');
 };
 
 module.exports = function(_infoHash, _clientID, _messages){

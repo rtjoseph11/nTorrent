@@ -3,16 +3,18 @@ var fs = require('fs');
 var crypto = require('crypto');
 var url = require('url');
 var request = require('request');
+var Peers = require('./peers');
 //need to change createSHA1 to deal with buffers
 var createSHA1 = function(info){
-  // return (new Buffer(crypto.createHash('sha1').update(string).digest('binary'), 'binary')).toString('binary');
   return crypto.createHash('sha1').update(info).digest();
 };
 
 //need to change the readfile to take a CLI argument rather than a harcoded string
 var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/testdata/fedora.torrent')));
 var infoHash = createSHA1(bencode.encode(torrent.info));
-var pieceField = require('./pieceField')(torrent.info);
+var PieceField = require('./pieceField');
+var pieceField = new PieceField(torrent.info);
+pieceField.on('checkForPiece', pieceField.checkForPiece);
 var messages = require('./messages');
 var clientID = '-CT0000-111111111111';
 var escapedInfoHash = escape(infoHash.toString('binary'));
@@ -34,9 +36,15 @@ for (var key in query){
 }
 
 var Peer = require('./peer')(infoHash, clientID, messages);
+var peers = new Peers();
 
+var peerBindings = function(peer){
+  peer.on('bitField', pieceField.registerPeer);
+  peer.on('unchoke', pieceField.checkForPiece);
+  peer.on('assignedPiece', peer.getPiece);
+  peer.on('pieceFinished', pieceField.checkForPiece);
+};
 //need to add a listener for unprompted connections ... ie a peer wants to connect to me
-var peers = require('./peers');
 
 request({
   uri: uri,
@@ -47,12 +55,10 @@ request({
     var index = 0;
     while (index < bodyObj.peers.length){
       var peer = new Peer(bodyObj.peers.slice(index, index + 6));
-      peer.on('bitField', pieceField.registerPeer);
-      peer.on('assignedPiece', peer.getPiece);
+      peerBindings(peer);
       peers.add(peer);
       index = index + 6;
     }
-    console.log('trying to connect to: ', peers[0]);
-    peers.maxPeer().connect();
+    peers.connect();
   }
 });

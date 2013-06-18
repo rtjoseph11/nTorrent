@@ -4,13 +4,15 @@ var pieceLength;
 var Piece = require('./piece');
 var storage = [];
 var peerMap = [];
+var bitMap = [];
 module.exports = function(torrentInfo){
   events.EventEmitter.call(this);
   //piece length is the number of bytes
   pieceLength = torrentInfo['piece length'];
   var index = 0;
   while (index < torrentInfo.pieces.length){
-    storage.push(new Piece(torrentInfo.pieces.slice(index, index+20), pieceLength));
+    storage.push(new Piece(torrentInfo.pieces.slice(index, index+20), pieceLength, index / 20));
+    bitMap.push(0);
     index = index + 20;
   }
   console.log('bitfield created, storage has length', storage.length);
@@ -29,7 +31,6 @@ module.exports.prototype.registerPeer = function(peer){
       peerMap[i].push(peer);
     }
   }
-  this.emit('peerRegistered', this);
 };
 
 module.exports.prototype.checkForPiece = function(){
@@ -38,7 +39,7 @@ module.exports.prototype.checkForPiece = function(){
       for (var j = 0; j < peerMap[i].length; j++){
         if (! peerMap[i][j].assignedPiece && peerMap[i][j].isConnected && peerMap[i][j].hasHandshake && ! peerMap[i][j].choking){
           peerMap[i][j].assignedPiece = storage[i];
-          storage[i].assignedPeer = peerMap[i][j].id;
+          storage[i].assignedPeer = peerMap[i][j];
           peerMap[i][j].emit('assignedPiece');
           break;
         }
