@@ -52,12 +52,10 @@ request({
 }, function(error, response, body){
   if (!error){
     var bodyObj = bencode.decode(body);
-    var index = 0;
-    while (index < bodyObj.peers.length){
+    for (var i = 0; i < bodyObj.peers.length; i += 6){
       var peer = new Peer(bodyObj.peers.slice(index, index + 6));
       peerBindings(peer);
       peers.add(peer);
-      index = index + 6;
     }
     peers.connect();
   }
