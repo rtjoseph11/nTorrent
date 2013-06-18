@@ -11,10 +11,24 @@ basic bitTorrent client written in node.js that you can run from the command lin
 
 status
 
-can connect to and handshake with peers
+downloading pieces from multiple peers
 
 ============
 
 next step
 
-create a datastructure for tracking which pieces have been downloaded
+construct files from pieces once pieces are downloaded
+
+============
+
+long term features
+
+multiple requests to the tracker
+
+provide ability to seed
+
+piece scarcity optimization
+
+transfer stats
+
+connection robustness (reconnecting when a connection drops, etc)
