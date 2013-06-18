@@ -60,6 +60,7 @@ exports.consumeMessage = function(message, peer){
       case 4:
       //have
       console.log('peer ', peer.id , ' has a piece');
+      peer.emit('hasPiece', peer, message.data.slice(1));
       break;
       case 5:
       //bitfield

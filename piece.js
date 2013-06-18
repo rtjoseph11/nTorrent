@@ -1,5 +1,8 @@
 var crypto = require('crypto');
+var events = require('events');
+var util = require('util');
 module.exports = function(sha, length, index, files){
+  events.EventEmitter.call(this);
   this.sha = sha;
   this.data = new Buffer(length);
   this.currentLength = 0;
@@ -7,6 +10,8 @@ module.exports = function(sha, length, index, files){
   this.index = index;
   this.files = files;
 };
+
+util.inherits(module.exports, events.EventEmitter);
 
 //consider doing the piece writing at the pieceField level since I have the index
 module.exports.prototype.writeChunk = function(buffer){
@@ -34,6 +39,7 @@ module.exports.prototype.validate = function(){
       pieceWriter.end(this.data.slice(files[i].start - this.index * this.data.length, files[i].writeLength));
     }
     this.assignedPeer.assignedPiece = null;
+    this.emit('pieceFinished', this);
     this.assignedPeer.emit('pieceFinished');
   } else {
     this.currentLength = 0;

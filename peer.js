@@ -73,6 +73,7 @@ Peer.prototype.disconnect = function(){
 
 Peer.prototype.generateBitField = function(bitBuffer){
   this.bitField = [];
+  debugger;
   for (var i = 0; i < bitBuffer.length; i++){
     for (var j = 0; j < bitBuffer[i].toString(2).length; j++){
       this.bitField.push(bitBuffer[i].toString(2)[j] === "1" ? true : false);

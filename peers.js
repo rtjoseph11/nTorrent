@@ -27,3 +27,11 @@ module.exports.prototype.connect = function(){
     }
   }
 };
+
+module.exports.prototype.disconnect = function(){
+  for (var i = 0; i < storage.length; i++){
+    if(storage[i]){
+      storage[i].disconnect();
+    }
+  }
+};
