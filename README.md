@@ -17,13 +17,15 @@ able to download files and construct them correctly on the harddrive
 
 next step
 
-construct files from pieces once pieces are downloaded
+generate peerID instead of hardcoding
 
 ============
 
 long term features
 
-connection robustness (reconnecting when a connection drops, etc)
+write tests
+
+listen for connections generated from other peers
 
 once a peer starts choking I need to stop sending piece requests, on unchoke if the peer has an assigned piece I need to resume downloading
 
