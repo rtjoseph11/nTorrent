@@ -20,6 +20,7 @@ var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/' + proces
 var infoHash = crypto.createHash('sha1').update(bencode.encode(torrent.info)).digest();
 var PieceField = require('./pieceField');
 var pieceField = new PieceField(torrent.info);
+var torrentFinished = false;
 pieceField.on('checkForPiece', pieceField.checkForPiece);
 var messages = require('./messages');
 var clientID = '-NT0000-111111111111';
@@ -28,6 +29,9 @@ var clientID = '-NT0000-111111111111';
 var Peer = require('./peer')(infoHash, clientID, messages, pieceField.length());
 var peers = new Peers();
 pieceField.on('torrentFinished', peers.disconnect);
+pieceField.on('torrentFinished', function(){
+  torrentFinished = true;
+});
 
 var peerBindings = function(peer){
   peer.on('bitField', pieceField.registerPeer);
@@ -62,9 +66,9 @@ if (! process.argv[3]){
       info_hash: escape(infoHash.toString('binary')),
       peer_id: clientID,
       port: 6881,
-      uploaded: queryStringNumber(pieceField.uploaded()),
-      downloaded: queryStringNumber(pieceField.downloaded()),
-      left: queryStringNumber(pieceField.left()),
+      uploaded: pieceField.uploaded(),
+      downloaded: pieceField.downloaded(),
+      left: pieceField.left(),
       compact: 1
   };
 
@@ -72,24 +76,30 @@ if (! process.argv[3]){
     uri += key + "=" + query[key] + "&";
   }
   console.log('requesting peers from ', uri);
-  request({
-    uri: uri,
-    encoding: null
-  }, function(error, response, body){
-    if (!error){
-      var bodyObj = bencode.decode(body);
-      for (var i = 0; i < bodyObj.peers.length; i += 6){
-        if (! peers.hasPeer(bodyObj.peers.slice(i, i + 6))){
-          var peer = new Peer(bodyObj.peers.slice(i, i + 6));
-          peerBindings(peer);
-          peers.add(peer, bodyObj.peers.slice(i, i + 6));
+  var trackerRequest = function(){
+    request({
+      uri: uri,
+      encoding: null
+    }, function(error, response, body){
+      if (!error){
+        var bodyObj = bencode.decode(body);
+        if (!torrentFinished){
+          setTimeout(trackerRequest, 1000 * bodyObj.minInterval ? bodyObj.minInterval : bodyObj.interval);
         }
+        for (var i = 0; i < bodyObj.peers.length; i += 6){
+          if (! peers.hasPeer(bodyObj.peers.slice(i, i + 6))){
+            var peer = new Peer(bodyObj.peers.slice(i, i + 6));
+            peerBindings(peer);
+            peers.add(peer, bodyObj.peers.slice(i, i + 6));
+          }
+        }
+        peers.connect();
       }
-      peers.connect();
-    }
-    else {
-      console.log(error);
-      console.log(response);
-    }
-  });
+      else {
+        console.log(error);
+        console.log(response);
+      }
+    });
+  };
+  trackerRequest();
 }
