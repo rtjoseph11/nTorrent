@@ -33,18 +33,9 @@ module.exports.prototype.writeChunk = function(buffer){
 };
 
 module.exports.prototype.validate = function(){
-  if (crypto.createHash('sha1').update(this.data).digest().toString('binary') === this.sha.toString('binary')){
+  if (crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
     console.log('succesfully received piece ', this.index);
-    for (var i = 0; i < this.files.length; i++){
-      // var start = this.files[i].start;
-      // var path = this.files[i].path;
-      // var writeLength = this.files[i].writeLength;
-      // var index = this.index;
-      // var standardLength = this.standardLength;
-      console.log('writing ', this.data.slice(this.files[i].start - this.index * this.standardLength, this.files[i].writeLength).length, ' bytes at position ', this.files[i].start, ' in file ', i);
-      var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start});
-      pieceWriter.end(this.data.slice(this.files[i].start - this.index * this.standardLength, this.files[i].writeLength));
-    }
+    this.writeToDisk();
     this.assignedPeer.assignedPiece = null;
     this.emit('pieceFinished', this);
     this.assignedPeer.emit('pieceFinished');
@@ -55,4 +46,14 @@ module.exports.prototype.validate = function(){
     this.assignedPeer = null;
     peer.emit('pieceFailed', this.assignedPeer);
   }
+};
+
+module.exports.prototype.writeToDisk = function(){
+  var used = 0;
+    for (var i = 0; i < this.files.length; i++){
+      console.log('writing ', this.data.slice(used, used + this.files[i].writeLength).length, ' bytes at position ', this.files[i].start, ' in file ', i);
+      var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start, flags: 'r+'});
+      pieceWriter.end(this.data.slice(used, used + this.files[i].writeLength));
+      used += this.files[i].writeLength;
+    }
 };
