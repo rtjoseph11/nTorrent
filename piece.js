@@ -16,14 +16,13 @@ module.exports = function(sha, length, index, files, standardLength){
 util.inherits(module.exports, events.EventEmitter);
 
 //consider doing the piece writing at the pieceField level since I have the index
-module.exports.prototype.writeChunk = function(buffer){
-  var index = buffer.readUInt32BE(0);
-  var begin = buffer.readUInt32BE(4);
-  if (begin !== this.currentLength || index !== this.index){
-    throw new Error ('begin or index did not match up indices: ' + this.index + ", " + index + "begins: " + begin + ", " + this.currentLength);
+module.exports.prototype.writeBlock = function(block){
+  if (block.begin !== this.currentLength || block.index !== this.index){
+    throw new Error ('begin or index did not match up indices: ' + this.index + ", " + block.index + "begins: " + block.begin + ", " + this.currentLength);
   } else {
-    buffer.copy(this.data, this.currentLength, 8);
-    this.currentLength += buffer.length - 8;
+    block.data.copy(this.data, this.currentLength);
+    this.currentLength += block.data.length;
+    this.assignedPeer.pendingRequest = false;
     if (this.currentLength === this.data.length){
       this.validate();
     } else {

@@ -17,15 +17,26 @@ module.exports = function(torrentInfo){
   if (! fs.existsSync(downloadpath)){
     fs.mkdirSync(downloadpath);
   }
-  for (var j = 0; j < torrentInfo.files.length; j++){
-    fs.writeFileSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString(), new Buffer(torrentInfo.files[j].length));
+  if (torrentInfo.files){
+    for (var j = 0; j < torrentInfo.files.length; j++){
+      fs.writeFileSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString(), new Buffer(torrentInfo.files[j].length));
+      files.push({
+        path: downloadpath + '/' + torrentInfo.files[j].path[0].toString(),
+        length: torrentInfo.files[j].length,
+        startPosition: totalLength,
+        used: 0
+      });
+      totalLength += torrentInfo.files[j].length;
+    }
+  } else {
+    fs.writeFileSync(downloadpath + '/' + torrentInfo.name.toString(), new Buffer(torrentInfo.length));
     files.push({
-      path: downloadpath + '/' + torrentInfo.files[j].path[0].toString(),
-      length: torrentInfo.files[j].length,
+      path: downloadpath + '/' + torrentInfo.name.toString(),
+      length: torrentInfo.length,
       startPosition: totalLength,
       used: 0
     });
-    totalLength += torrentInfo.files[j].length;
+    totalLength += torrentInfo.length;
   }
   for (var i = 0; i < torrentInfo.pieces.length; i += 20){
     //ternary is for the last piece which will probably be shorter than the rest of the pieces
@@ -73,18 +84,18 @@ module.exports.prototype.length = function(index){
 };
 
 module.exports.prototype.left = function(){
-  //hardocded to 0
-  return '48';
+  //hardcoding to the total length of the torrent
+  return totalLength;
 };
 
 module.exports.prototype.downloaded = function(){
   //hardocded to 0
-  return '48';
+  return 0;
 };
 
 module.exports.prototype.uploaded = function(){
   //hardocded to 0
-  return '48';
+  return 0;
 };
 
 module.exports.prototype.registerPeer = function(peer){
@@ -95,10 +106,18 @@ module.exports.prototype.registerPeer = function(peer){
   }
 };
 
-module.exports.prototype.registerPeerPiece = function(peer, indexBuffer){
-  var index = indexBuffer.readUInt32BE(0);
-  console.log('peer ', peer.id , ' has piece ', index);
-  peer.bitField[index] = true;
+module.exports.prototype.unregisterPeer = function(peer){
+  for (var i = 0; i < peer.bitField.length; i++){
+    if (peer.bitField[i]){
+      peerMap[i].splice(peerMap[i].indexOf(peer), 1);
+      if (peerMap[i].length === 0){
+        console.log('piece ', i, ' is no longer available');
+      }
+    }
+  }
+};
+
+module.exports.prototype.registerPeerPiece = function(peer, index){
   peerMap[index].push(peer);
 };
 

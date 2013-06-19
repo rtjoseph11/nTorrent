@@ -8,19 +8,6 @@ var clientID;
 var messages;
 var id = 0;
 
-var numToBitString = function(number){
-  result = '';
-  result += number & 128 ? '1' : '0';
-  result += number & 64 ? '1' : '0';
-  result += number & 32 ? '1' : '0';
-  result += number & 16 ? '1' : '0';
-  result += number & 8 ? '1' : '0';
-  result += number & 4 ? '1' : '0';
-  result += number & 2 ? '1' : '0';
-  result += number & 1 ? '1' : '0';
-  return result;
-};
-
 var Peer = function(buffer){
   events.EventEmitter.call(this);
   this.ip = buffer[0] + '.' + buffer[1] + '.' + buffer[2] + '.' + buffer[3];
@@ -57,6 +44,11 @@ Peer.prototype.connect = function(){
 
   self.connection.on('timeout', function(){
     console.log('timeout!');
+    if (self.assignedPiece){
+      self.assignedPiece.assignedPeer = null;
+      self.emit('floatingPiece');
+    }
+    self.emit('disconnect', self);
     self.connection.end();
   });
 
@@ -67,13 +59,18 @@ Peer.prototype.connect = function(){
     } else {
       console.log('peer ', self.id, ' connection closed!');
     }
-      self.disconnect();
+    self.disconnect();
   });
 
   self.connection.on('error', function(exception){
     self.connectionError = true;
     self.isConnected = false;
     self.hasHandshake = false;
+    if (self.assignedPiece){
+      self.assignedPiece.assignedPeer = null;
+      self.emit('floatingPiece');
+    }
+    self.emit('disconnect', self);
     console.log('peer ', self.id, ' Exception: ', exception);
   });
 };
@@ -82,35 +79,73 @@ Peer.prototype.disconnect = function(){
   if(this.connection){
     this.isConnected = false;
     this.hasHandshake = false;
+    if (this.assignedPiece){
+      this.assignedPiece.assignedPeer = null;
+      this.emit('floatingPiece');
+      console.log('floating piece');
+    }
+    this.emit('disconnect', this);
     this.connection.end();
   }
 };
 
-Peer.prototype.generateBitField = function(bitBuffer){
+Peer.prototype.generateBitField = function(bitString){
+  console.log('peer ', this.id , ' sent a bitfield');
   var count = 0;
-  for (var i = 0; i < bitBuffer.length; i++){
-    var bitString = numToBitString(bitBuffer[i]);
-    for (var j = 0; j < bitString.length; j++){
-      if (count < numPieces){
-        this.bitField.push(bitString[j] === "1" ? true : false);
-        count++;
-      }
+  for (var i = 0; i < bitString.length; i++){
+    if (count < numPieces){
+      this.bitField.push(bitString[i] === "1" ? true : false);
+      count++;
     }
   }
   this.emit('bitField', this);
 };
 
 Peer.prototype.getPiece = function(){
-  if (! this.assignedPiece || this.choking || ! this.isConnected || ! this.hasHandshake){
+  var self = this;
+  if (! self.assignedPiece || self.choking || ! self.isConnected || ! self.hasHandshake){
     throw new Error('peer told to get a piece when it shouldnt have been');
-  } else {
-    this.connection.write(messages.generateRequest(this.assignedPiece));
+  } else if (!self.pendingRequest){
+    self.connection.write(messages.generateRequest(self.assignedPiece), function(){
+      self.pendingRequset = true;
+    });
   }
 };
 
 Peer.prototype.unchoke = function(){
+  console.log('peer ', this.id , ' is no longer choking the client');
   this.choking = false;
-  this.emit('unchoke');
+  if (this.assignedPiece){
+        this.getPiece();
+  } else {
+    this.emit('available');
+  }
+};
+
+Peer.prototype.choke = function(){
+  console.log('peer ', this.id , ' is now choking');
+  this.choking = true;
+};
+
+Peer.prototype.interested = function(){
+  this.interested = true;
+  console.log('peer ', this.id , ' is now interested');
+};
+
+Peer.prototype.unInterested = function(){
+  this.interested = false;
+  console.log('peer ', this.id , ' is now uninterested');
+};
+
+Peer.prototype.keepAlive = function(){
+  console.log('peer ', this.id , ' sent a keep alive');
+  this.emit('keepAlive');
+};
+
+Peer.prototype.hasPiece = function(index){
+   console.log('peer ', this.id , ' has piece ', index);
+   this.bitField[index] = true;
+   this.emit('hasPiece', this, index);
 };
 
 Peer.prototype.sendInterested = function(){

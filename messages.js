@@ -1,3 +1,35 @@
+var numToBitString = function(number){
+  result = '';
+  result += number & 128 ? '1' : '0';
+  result += number & 64 ? '1' : '0';
+  result += number & 32 ? '1' : '0';
+  result += number & 16 ? '1' : '0';
+  result += number & 8 ? '1' : '0';
+  result += number & 4 ? '1' : '0';
+  result += number & 2 ? '1' : '0';
+  result += number & 1 ? '1' : '0';
+  return result;
+};
+
+var generateBitString = function(buffer){
+  var result = '';
+  for (var i = 0; i < buffer.length; i++){
+    result += numToBitString(buffer[i]);
+  }
+  return result;
+};
+
+var getPieceIndex = function(buffer){
+  return buffer.readUInt32BE(0);
+};
+
+var getBlock = function(buffer){
+  return {
+    index: buffer.readUInt32BE(0),
+    begin: buffer.readUInt32BE(4),
+    data:  buffer.slice(8)
+  };
+};
 exports.generateHandshake = function(infoHash, clientID){
   var result = new Buffer(68);
   result.writeUInt8(19, 0);
@@ -39,38 +71,32 @@ exports.consumeHandshake = function(buffer, infoHash, peer){
 
 exports.consumeMessage = function(message, peer){
   if (message.data.length === 0){
-    console.log('peer ', peer.id , ' sent a keep alive');
-    peer.emit('keepAlive');
+    peer.keepAlive();
   } else {
     switch (message.data.readUInt8(0)){
       case 0:
       //choke
-      peer.choking = true;
-      console.log('peer ', peer.id , ' is now choking');
+      peer.choke();
       break;
       case 1:
       //unchoke
-      console.log('peer ', peer.id , ' is no longer choking the client');
       peer.unchoke();
       break;
       case 2:
       //interested
-      peer.interested = true;
-      console.log('peer ', peer.id , ' is now interested');
+      peer.interested();
       break;
       case 3:
       //not interested
-      peer.interested = false;
-      console.log('peer ', peer.id , ' is now uninterested');
+      peer.unInterested();
       break;
       case 4:
       //have
-      peer.emit('hasPiece', peer, message.data.slice(1));
+      peer.hasPiece(getPieceIndex(message.data.slice(1)));
       break;
       case 5:
       //bitfield
-      console.log('peer ', peer.id , ' sent a bitfield');
-      peer.generateBitField(message.data.slice(1));
+      peer.generateBitField(generateBitString(message.data.slice(1)));
       break;
       case 6:
       //request
@@ -78,7 +104,7 @@ exports.consumeMessage = function(message, peer){
       break;
       case 7:
       //piece
-      peer.assignedPiece.writeChunk(message.data.slice(1));
+      peer.assignedPiece.writeBlock(getBlock(message.data.slice(1)));
       break;
     }
   }
