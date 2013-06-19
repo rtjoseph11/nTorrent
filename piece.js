@@ -1,7 +1,8 @@
 var crypto = require('crypto');
 var events = require('events');
 var util = require('util');
-module.exports = function(sha, length, index, files){
+var fs = require('fs');
+module.exports = function(sha, length, index, files, standardLength){
   events.EventEmitter.call(this);
   this.sha = sha;
   this.data = new Buffer(length);
@@ -9,6 +10,7 @@ module.exports = function(sha, length, index, files){
   this.assignedPeer = null;
   this.index = index;
   this.files = files;
+  this.standardLength = standardLength;
 };
 
 util.inherits(module.exports, events.EventEmitter);
@@ -31,12 +33,11 @@ module.exports.prototype.writeChunk = function(buffer){
 };
 
 module.exports.prototype.validate = function(){
-  console.log('validating piece ', this.index);
   if (crypto.createHash('sha1').update(this.data).digest().toString('binary') === this.sha.toString('binary')){
-    console.log('succesfully received pice ', this.index);
+    console.log('succesfully received piece ', this.index);
     for (var i = 0; i < this.files.length; i++){
-      var pieceWriter = fs.createWriteStream(files[i].path, {start: files[i].start});
-      pieceWriter.end(this.data.slice(files[i].start - this.index * this.data.length, files[i].writeLength));
+      var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start});
+      pieceWriter.end(this.data.slice(this.files[i].start - this.index * this.standardLength, this.files[i].writeLength));
     }
     this.assignedPeer.assignedPiece = null;
     this.emit('pieceFinished', this);

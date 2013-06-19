@@ -29,8 +29,10 @@ module.exports.prototype.connect = function(){
 };
 
 module.exports.prototype.disconnect = function(){
+  console.log('disconnecting all peers');
   for (var i = 0; i < storage.length; i++){
     if(storage[i]){
+      storage[i].removeAllListeners();
       storage[i].disconnect();
     }
   }

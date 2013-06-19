@@ -18,11 +18,13 @@ var messages = require('./messages');
 var clientID = '-NT0000-111111111111';
 
 
-var Peer = require('./peer')(infoHash, clientID, messages);
+var Peer = require('./peer')(infoHash, clientID, messages, pieceField.length());
 var peers = new Peers();
 pieceField.on('torrentFinished', peers.disconnect);
+
 var peerBindings = function(peer){
   peer.on('bitField', pieceField.registerPeer);
+  peer.on('hasHandshake', peer.sendInterested);
   peer.on('unchoke', pieceField.checkForPiece);
   peer.on('assignedPiece', peer.getPiece);
   peer.on('pieceFinished', pieceField.checkForPiece);

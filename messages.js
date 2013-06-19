@@ -15,10 +15,16 @@ exports.generateRequest = function(piece){
   result.writeUInt8(6 , 4);
   result.writeUInt32BE(piece.index, 5);
   result.writeUInt32BE(piece.currentLength, 9);
-  result.writeUInt32BE(16384, 13);
+  result.writeUInt32BE(Math.min(16384, piece.data.length - piece.currentLength), 13);
   return result;
 };
 
+exports.generateInterested = function(){
+  var result = new Buffer(5);
+  result.writeUInt32BE(1, 0);
+  result.writeUInt8(2, 4);
+  return result;
+};
 exports.consumeHandshake = function(buffer, infoHash, peer){
   if( buffer.toString('utf8', 1, buffer.readUInt8(0) + 1) === "BitTorrent protocol" && buffer.slice(28,48).toString('binary') === infoHash.toString('binary')){
     peer.peerID = buffer.slice(48,68).toString();
@@ -59,7 +65,6 @@ exports.consumeMessage = function(message, peer){
       break;
       case 4:
       //have
-      console.log('peer ', peer.id , ' has a piece');
       peer.emit('hasPiece', peer, message.data.slice(1));
       break;
       case 5:
@@ -73,7 +78,6 @@ exports.consumeMessage = function(message, peer){
       break;
       case 7:
       //piece
-      console.log('peer ', peer.id , ' sent a piece');
       peer.assignedPiece.writeChunk(message.data.slice(1));
       break;
     }

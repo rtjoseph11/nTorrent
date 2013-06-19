@@ -2,10 +2,24 @@ var net = require('net');
 var events = require('events');
 var util = require('util');
 var MessageParser = require('./messageParser');
+var numPieces;
 var infoHash;
 var clientID;
 var messages;
 var id = 0;
+
+var numToBitString = function(number){
+  result = '';
+  result += number & 128 ? '1' : '0';
+  result += number & 64 ? '1' : '0';
+  result += number & 32 ? '1' : '0';
+  result += number & 16 ? '1' : '0';
+  result += number & 8 ? '1' : '0';
+  result += number & 4 ? '1' : '0';
+  result += number & 2 ? '1' : '0';
+  result += number & 1 ? '1' : '0';
+  return result;
+};
 
 var Peer = function(buffer){
   events.EventEmitter.call(this);
@@ -17,6 +31,7 @@ var Peer = function(buffer){
   this.interested = false;
   this.assignedPiece = null;
   this.id = ++id;
+  this.bitField = [];
 };
 
 util.inherits(Peer, events.EventEmitter);
@@ -72,11 +87,14 @@ Peer.prototype.disconnect = function(){
 };
 
 Peer.prototype.generateBitField = function(bitBuffer){
-  this.bitField = [];
-  debugger;
+  var count = 0;
   for (var i = 0; i < bitBuffer.length; i++){
-    for (var j = 0; j < bitBuffer[i].toString(2).length; j++){
-      this.bitField.push(bitBuffer[i].toString(2)[j] === "1" ? true : false);
+    var bitString = numToBitString(bitBuffer[i]);
+    for (var j = 0; j < bitString.length; j++){
+      if (count < numPieces){
+        this.bitField.push(bitString[j] === "1" ? true : false);
+        count++;
+      }
     }
   }
   this.emit('bitField', this);
@@ -86,7 +104,6 @@ Peer.prototype.getPiece = function(){
   if (! this.assignedPiece || this.choking || ! this.isConnected || ! this.hasHandshake){
     throw new Error('peer told to get a piece when it shouldnt have been');
   } else {
-    console.log('trying to get piece ', this.assignedPiece.index);
     this.connection.write(messages.generateRequest(this.assignedPiece));
   }
 };
@@ -96,9 +113,15 @@ Peer.prototype.unchoke = function(){
   this.emit('unchoke');
 };
 
-module.exports = function(_infoHash, _clientID, _messages){
+Peer.prototype.sendInterested = function(){
+  console.log('expressing interested to peer ', this.id);
+  this.connection.write(messages.generateInterested());
+};
+
+module.exports = function(_infoHash, _clientID, _messages, _numPieces){
   infoHash = _infoHash;
   clientID = _clientID;
   messages = _messages;
+  numPieces = _numPieces;
   return Peer;
 };
