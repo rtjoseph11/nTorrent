@@ -22,7 +22,8 @@ module.exports = function(torrentInfo){
     files.push({
       path: downloadpath + '/' + torrentInfo.files[j].path[0].toString(),
       length: torrentInfo.files[j].length,
-      startPosition: totalLength
+      startPosition: totalLength,
+      used: 0
     });
     totalLength += torrentInfo.files[j].length;
   }
@@ -32,13 +33,16 @@ module.exports = function(torrentInfo){
     var pieceFiles = [];
     var startIndex = (i / 20) * pieceLength;
     var endIndex = (((i / 20) * pieceLength) + curPieceLength);
+    var pieceUsed = 0;
     for (var k = 0; k < files.length; k++){
       if (endIndex >= files[k].startPosition && startIndex < files[k].startPosition + files[k].length){
         pieceFiles.push({
           path: files[k].path,
-          start: Math.max(files[k].startPosition, startIndex),
-          writeLength: Math.min(files[k].length, curPieceLength)
+          start: Math.max(files[k].used),
+          writeLength: Math.min(files[k].length + files[k].startPosition - startIndex - pieceUsed, curPieceLength - pieceUsed)
         });
+        pieceUsed += Math.min(files[k].length + files[k].startPosition - startIndex - pieceUsed, curPieceLength - pieceUsed);
+        files[k].used += pieceFiles[pieceFiles.length - 1].writeLength;
       }
     }
     var piece = new Piece(torrentInfo.pieces.slice(i, i + 20),  curPieceLength, i / 20, pieceFiles, pieceLength);

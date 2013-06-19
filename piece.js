@@ -36,6 +36,12 @@ module.exports.prototype.validate = function(){
   if (crypto.createHash('sha1').update(this.data).digest().toString('binary') === this.sha.toString('binary')){
     console.log('succesfully received piece ', this.index);
     for (var i = 0; i < this.files.length; i++){
+      // var start = this.files[i].start;
+      // var path = this.files[i].path;
+      // var writeLength = this.files[i].writeLength;
+      // var index = this.index;
+      // var standardLength = this.standardLength;
+      console.log('writing ', this.data.slice(this.files[i].start - this.index * this.standardLength, this.files[i].writeLength).length, ' bytes at position ', this.files[i].start, ' in file ', i);
       var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start});
       pieceWriter.end(this.data.slice(this.files[i].start - this.index * this.standardLength, this.files[i].writeLength));
     }
