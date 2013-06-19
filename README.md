@@ -17,13 +17,15 @@ able to download files and construct them correctly on the harddrive
 
 next step
 
-listen for connections generated from other peers
+generate peerID instead of hardcoding
 
 ============
 
 long term features
 
 write tests
+
+listen for connections generated from other peers
 
 once a peer starts choking I need to stop sending piece requests, on unchoke if the peer has an assigned piece I need to resume downloading
 
