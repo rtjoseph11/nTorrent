@@ -7,7 +7,7 @@ module.exports = function(peer, infoHash, messages){
 
 module.exports.prototype.consume = function(buffer){
   var used;
-  if (this.peer.hasHandshake){
+  if (this.peer.receivedHandshake){
     if (this.partialMessage){
       if (buffer.length + this.partialMessage.currentLength < this.partialMessage.data.length){
         buffer.copy(this.partialMessage.data, this.partialMessage.currentLength);

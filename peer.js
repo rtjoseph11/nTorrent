@@ -8,7 +8,7 @@ var clientID;
 var messages;
 var id = 0;
 
-var Peer = function(buffer){
+var Peer = function(buffer, connection){
   events.EventEmitter.call(this);
   this.ip = buffer[0] + '.' + buffer[1] + '.' + buffer[2] + '.' + buffer[3];
   this.port = buffer.readUInt16BE(4);
@@ -16,70 +16,47 @@ var Peer = function(buffer){
   this.amInterested = false;
   this.choking = true;
   this.interested = false;
+  this.sentHandshake = false;
+  this.receivedHandshake = false;
   this.assignedPiece = null;
   this.id = ++id;
   this.bitField = [];
+  if (connection){
+    this.connection = connection;
+    this.isConnected = true;
+    this.eventBindings();
+  }
 };
 
 util.inherits(Peer, events.EventEmitter);
 
 Peer.prototype.connect = function(){
   var self = this;
-  self.hasHandshake = false;
-  self.connectionError = false;
-  self.connection = new net.Socket();
-  self.connection.connect(self.port, self.ip);
-  var messageParser = new MessageParser(self, infoHash, messages);
+  if (! self.connectionError){
+    self.connectionError = false;
+  }
+  if (! self.connection){
+    self.connection = new net.Socket();
+    self.connection.connect(self.port, self.ip);
+  }
 
-  self.connection.on('data', function(chunk){
-    messageParser.consume(chunk);
-  });
+  self.eventBindings();
 
   self.connection.on('connect', function(){
     self.isConnected = true;
     console.log('connected to peer ', self.id ,': ' + self.ip + ':' + self.port);
-    self.connection.write(messages.generateHandshake(infoHash, clientID), function(){
-      console.log('wrote handshake to peer ', self.id ,'!');
-    });
-  });
-
-  self.connection.on('error', function(exception){
-    self.connectionError = true;
-    self.isConnected = false;
-    self.hasHandshake = false;
-    if (self.assignedPiece){
-      self.assignedPiece.assignedPeer = null;
-      self.emit('floatingPiece');
-    }
-    self.emit('disconnect', self);
-    console.log('peer ', self.id, ' Exception: ', exception);
-  });
-
-  self.connection.on('close', function(hadError){
-    if (hadError){
-      self.connectionError = true;
-      console.log('peer ', self.id, ' connection closed due to error');
-    } else {
-      console.log('peer ', self.id, ' connection closed!');
-    }
-    self.disconnect();
-  });
-
-  self.connection.on('timeout', function(){
-    if (self.assignedPiece){
-      self.assignedPiece.assignedPeer = null;
-      self.emit('floatingPiece');
-    }
-    self.emit('disconnect', self);
-    self.connection.end();
+    self.sendHandshake();
   });
 };
 
 Peer.prototype.disconnect = function(){
     this.isConnected = false;
-    this.hasHandshake = false;
+    this.receivedHandshake = false;
+    this.sentHandshake = false;
     if (this.assignedPiece){
+      this.assignedPiece.currentLength = 0;
       this.assignedPiece.assignedPeer = null;
+      this.pendingRequest = false;
       this.emit('floatingPiece');
       console.log('floating piece');
     }
@@ -101,8 +78,12 @@ Peer.prototype.generateBitField = function(bitString){
 
 Peer.prototype.getPiece = function(){
   var self = this;
-  if (! self.assignedPiece || self.choking || ! self.isConnected || ! self.hasHandshake){
-    throw new Error('peer told to get a piece when it shouldnt have been');
+  if (! self.assignedPiece || self.choking || ! self.isConnected || ! self.sentHandshake || ! self.receivedHandshake){
+    if (self.assignedPiece){
+      self.assignedPiece.assignedPeer = null;
+      self.assignedPiece = null;
+      self.emit('floatingPiece');
+    }
   } else if (!self.pendingRequest){
     self.connection.write(messages.generateRequest(self.assignedPiece), function(){
       self.pendingRequset = true;
@@ -125,12 +106,14 @@ Peer.prototype.choke = function(){
   this.choking = true;
 };
 
-Peer.prototype.interested = function(){
+Peer.prototype.isInterested = function(){
   this.interested = true;
+  this.amChoking = false;
   console.log('peer ', this.id , ' is now interested');
+  this.sendUnchoke();
 };
 
-Peer.prototype.unInterested = function(){
+Peer.prototype.isUnInterested = function(){
   this.interested = false;
   console.log('peer ', this.id , ' is now uninterested');
 };
@@ -141,14 +124,68 @@ Peer.prototype.keepAlive = function(){
 };
 
 Peer.prototype.hasPiece = function(index){
-   console.log('peer ', this.id , ' has piece ', index);
    this.bitField[index] = true;
    this.emit('hasPiece', this, index);
 };
 
+Peer.prototype.sendPiece = function(block){
+  var self = this;
+  self.connection.write(messages.generateBlock(block), function(){
+    console.log('sent piece ', block.index, ' begin ', block.begin, ' to peer ', self.id);
+  });
+};
+
+Peer.prototype.sendBitField = function(bitField){
+  var self = this;
+  self.connection.write(messages.generateBitField(bitField), function(){
+    console.log('sent bitfield to peer ', self.id);
+  });
+};
+
 Peer.prototype.sendInterested = function(){
-  console.log('expressing interested to peer ', this.id);
-  this.connection.write(messages.generateInterested());
+  var self = this;
+  self.connection.write(messages.generateInterested(), function(){
+    console.log('expressing interested to peer ', self.id);
+  });
+};
+
+Peer.prototype.sendUnchoke = function(){
+  var self = this;
+  self.connection.write(messages.generateUnchoke(), function(){
+    console.log('unchoking peer ', self.id);
+  });
+};
+
+Peer.prototype.sendHandshake = function(){
+  var self = this;
+  self.connection.write(messages.generateHandshake(infoHash, clientID), function(){
+    self.sentHandshake = true;
+    console.log('wrote handshake to peer ', self.id ,'!');
+  });
+};
+
+Peer.prototype.eventBindings = function(){
+  var self = this;
+
+  var messageParser = new MessageParser(self, infoHash, messages);
+
+  self.connection.on('data', function(chunk){
+    messageParser.consume(chunk);
+  });
+  self.connection.on('error', function(exception){
+    self.connectionError = true;
+    console.log('peer ', self.id, ' Exception: ', exception);
+  });
+
+  self.connection.on('close', function(hadError){
+    if (hadError){
+      self.connectionError = true;
+      console.log('peer ', self.id, ' connection closed due to error');
+    } else {
+      console.log('peer ', self.id, ' connection closed!');
+    }
+    self.disconnect();
+  });
 };
 
 module.exports = function(_infoHash, _clientID, _messages, _numPieces){

@@ -18,17 +18,27 @@ util.inherits(module.exports, events.EventEmitter);
 //consider doing the piece writing at the pieceField level since I have the index
 module.exports.prototype.writeBlock = function(block){
   if (block.begin !== this.currentLength || block.index !== this.index){
-    throw new Error ('begin or index did not match up indices: ' + this.index + ", " + block.index + "begins: " + block.begin + ", " + this.currentLength);
+    console.log('begin or index did not match up indices: ' + this.index + ", " + block.index + " begins: " + block.begin + ", " + this.currentLength);
+    this.currentLength = 0;
+    this.assignedPeer = null;
+    this.emit('writeFailed');
   } else {
     block.data.copy(this.data, this.currentLength);
     this.currentLength += block.data.length;
-    this.assignedPeer.pendingRequest = false;
     if (this.currentLength === this.data.length){
       this.validate();
     } else {
-      this.assignedPeer.getPiece();
+      this.assignedPeer && this.assignedPeer.getPiece();
     }
   }
+};
+
+module.exports.prototype.getBlock = function(begin, length){
+  return {
+    index: this.index,
+    begin: begin,
+    data: this.data.slice(begin, begin + length)
+  };
 };
 
 module.exports.prototype.validate = function(){
@@ -55,4 +65,22 @@ module.exports.prototype.writeToDisk = function(){
       pieceWriter.end(this.data.slice(used, used + this.files[i].writeLength));
       used += this.files[i].writeLength;
     }
+};
+
+module.exports.prototype.readFromDisk = function(){
+  for(var i = 0; i < this.files.length; i++){
+    if (fs.existsSync(this.files[i].path)){
+      var fd = fs.openSync(this.files[i].path, 'r');
+      fs.readSync(fd, this.data, this.currentLength, this.files[i].writeLength, this.files[i].start);
+      this.currentLength += this.files[i].writeLength;
+      fs.closeSync(fd);
+    }
+  }
+  if(crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
+    // console.log('have piece ', this.index);
+    this.emit('pieceExists', this);
+  } else {
+    this.currentLength = 0;
+    // console.log('missing piece ', this.index);
+  }
 };

@@ -4,11 +4,16 @@ var crypto = require('crypto');
 var url = require('url');
 var request = require('request');
 var Peers = require('./peers');
+var net = require('net');
 
 if (! fs.existsSync(__dirname + '/' + process.argv[2])){
   throw new Error('torrent file ' + process.argv[2] + " doesn't exist!");
 }
 
+if (! process.argv[3] || isNaN(process.argv[3]) || !process.argv[4]){
+  throw new Error('need to provide a port to listen on and indicate seed status');
+}
+var port = process.argv[3];
 var queryStringNumber = function(number){
   var result = [];
   for (var i = 0; i < number.toString().length; i++){
@@ -20,8 +25,6 @@ var torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/' + proces
 var infoHash = crypto.createHash('sha1').update(bencode.encode(torrent.info)).digest();
 var PieceField = require('./pieceField');
 var pieceField = new PieceField(torrent.info);
-var torrentFinished = false;
-pieceField.on('checkForPiece', pieceField.checkForPiece);
 var messages = require('./messages');
 var clientID = '-NT0000-' + Date.now().toString().substring(1);
 
@@ -35,39 +38,55 @@ pieceField.on('torrentFinished', function(){
   clearInterval(reconnect);
 });
 
+var torrentFinished = pieceField.isFinished();
 var peerBindings = function(peer){
   peer.on('bitField', pieceField.registerPeer);
-  peer.on('hasHandshake', peer.sendInterested);
+  peer.on('receivedHandshake', function(p){
+    if (p.sentHandshake){
+      p.sendInterested();
+    } else {
+      p.sendHandshake();
+      p.sendBitField(pieceField.bitField());
+    }
+  });
   peer.on('available', pieceField.checkForPiece);
   peer.on('floatingPiece', pieceField.checkForPiece);
   peer.on('assignedPiece', peer.getPiece);
   peer.on('pieceFinished', pieceField.checkForPiece);
   peer.on('hasPiece', pieceField.registerPeerPiece);
   peer.on('disconnect', pieceField.unregisterPeer);
+  peer.on('pieceRequest', pieceField.sendPiece);
 };
 //need to add a listener for unprompted connections ... ie a peer wants to connect to me
-if (process.argv[3] === 'sandbox'){
+if (process.argv[process.argv.length - 2] === 'sandbox'){
   var buf = new Buffer(6);
   buf.writeUInt8(10, 0);
   buf.writeUInt8(0, 1);
   buf.writeUInt8(1, 2);
   buf.writeUInt8(240, 3);
-  buf.writeUInt16BE(24874, 4);
+  buf.writeUInt16BE(process.argv[process.argv.length - 1], 4);
   var sandboxPeer = new Peer(buf);
   peerBindings(sandboxPeer);
   peers.add(sandboxPeer, buf);
-  peers.connect();
-}
-
-if (! process.argv[3]){
-  var uri = torrent.announce.toString('binary') + '?';
-  if (uri.substring(0,4) !== "http"){
-    throw new Error("tracker announce protocol is " + uri.substring(0,4) + " instead of http");
+} else {
+  var uri;
+  if(torrent.announce.toString('binary').substring(0,4) === 'http'){
+    uri = torrent.announce.toString('binary') + '?';
+  } else if (torrent['announce-list']){
+    for (var x = 0; x < torrent['announce-list'].length; x++){
+      if (torrent['announce-list'][x][0].toString('binary').substring(0,4) === 'http'){
+        uri = torrent['announce-list'][x][0].toString('binary') + '?';
+        break;
+      }
+    }
+  }
+  if (! uri){
+    throw new Error("no http trackers");
   }
   var query = {
       info_hash: escape(infoHash.toString('binary')),
       peer_id: clientID,
-      port: 6881,
+      port: port,
       uploaded: pieceField.uploaded(),
       downloaded: pieceField.downloaded(),
       left: pieceField.left(),
@@ -86,17 +105,21 @@ if (! process.argv[3]){
       console.log('requested peers from ', uri);
       if (!error){
         var bodyObj = bencode.decode(body);
-        if (!torrentFinished){
-          console.log('next announce in ', Math.max(bodyObj.minInterval ? bodyObj.minInterval : bodyObj.interval, 60), ' seconds');
-          console.log('received ', bodyObj.peers.length / 6, ' peers');
-          setTimeout(trackerRequest, 60000);
-        }
-        for (var i = 0; i < bodyObj.peers.length; i += 6){
-          if (! peers.hasPeer(bodyObj.peers.slice(i, i + 6))){
-            var peer = new Peer(bodyObj.peers.slice(i, i + 6));
-            peerBindings(peer);
-            peers.add(peer, bodyObj.peers.slice(i, i + 6));
+        if (!bodyObj['failure reason']){
+          if (!torrentFinished && peers.length() < 500){
+            console.log('next announce in ', Math.max(bodyObj.minInterval ? bodyObj.minInterval : bodyObj.interval, 60), ' seconds');
+            console.log('received ', bodyObj.peers.length / 6, ' peers');
+            setTimeout(trackerRequest, 60000);
           }
+          for (var i = 0; i < bodyObj.peers.length; i += 6){
+            if (! peers.hasPeer(bodyObj.peers.slice(i, i + 6))){
+              var peer = new Peer(bodyObj.peers.slice(i, i + 6));
+              peerBindings(peer);
+              peers.add(peer, bodyObj.peers.slice(i, i + 6));
+            }
+          }
+        } else {
+          console.log(bodyObj['failure reason'].toString());
         }
       }
       else {
@@ -105,5 +128,25 @@ if (! process.argv[3]){
       }
     });
   };
-  trackerRequest();
+  !torrentFinished && trackerRequest();
+}
+
+var client = net.createServer(function(c){
+  console.log('unsolicted peer connected!');
+  var buf = new Buffer(6);
+  var ip = c.remoteAddress.split('.');
+  buf.writeUInt8(Number(ip[0]), 0);
+  buf.writeUInt8(Number(ip[1]), 1);
+  buf.writeUInt8(Number(ip[2]), 2);
+  buf.writeUInt8(Number(ip[3]), 3);
+  buf.writeUInt16BE(c.remotePort, 4);
+  var unsolicitedPeer = new Peer(buf, c);
+  peerBindings(unsolicitedPeer);
+  peers.add(unsolicitedPeer, buf);
+});
+client.listen(port, function(){
+  console.log('client bound to port ', port);
+});
+if (process.argv[3] !== 'seed'){
+  pieceField.on('torrentFinished', client.unref);
 }

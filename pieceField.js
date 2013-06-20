@@ -8,6 +8,7 @@ var peerMap = [];
 var bitMap = [];
 var files = [];
 var totalLength = 0;
+
 module.exports = function(torrentInfo){
   var self = this;
   events.EventEmitter.call(self);
@@ -19,7 +20,9 @@ module.exports = function(torrentInfo){
   }
   if (torrentInfo.files){
     for (var j = 0; j < torrentInfo.files.length; j++){
-      fs.writeFileSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString(), new Buffer(torrentInfo.files[j].length));
+      if (! fs.existsSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString())){
+        fs.writeFileSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString(), new Buffer(torrentInfo.files[j].length));
+      }
       files.push({
         path: downloadpath + '/' + torrentInfo.files[j].path[0].toString(),
         length: torrentInfo.files[j].length,
@@ -29,7 +32,9 @@ module.exports = function(torrentInfo){
       totalLength += torrentInfo.files[j].length;
     }
   } else {
-    fs.writeFileSync(downloadpath + '/' + torrentInfo.name.toString(), new Buffer(torrentInfo.length));
+    if (! fs.existsSync(downloadpath + '/' + torrentInfo.name.toString())){
+      fs.writeFileSync(downloadpath + '/' + torrentInfo.name.toString(), new Buffer(torrentInfo.length));
+    }
     files.push({
       path: downloadpath + '/' + torrentInfo.name.toString(),
       length: torrentInfo.length,
@@ -40,13 +45,13 @@ module.exports = function(torrentInfo){
   }
   for (var i = 0; i < torrentInfo.pieces.length; i += 20){
     //ternary is for the last piece which will probably be shorter than the rest of the pieces
-    var curPieceLength = i + 20 < torrentInfo.pieces.length ? pieceLength : totalLength % pieceLength;
+    var curPieceLength = i + 20 < torrentInfo.pieces.length ? pieceLength : totalLength % pieceLength === 0 ? pieceLength : totalLength % pieceLength;
     var pieceFiles = [];
     var startIndex = (i / 20) * pieceLength;
     var endIndex = (((i / 20) * pieceLength) + curPieceLength);
     var pieceUsed = 0;
     for (var k = 0; k < files.length; k++){
-      if (endIndex >= files[k].startPosition && startIndex < files[k].startPosition + files[k].length){
+      if (endIndex > files[k].startPosition && startIndex < files[k].startPosition + files[k].length){
         pieceFiles.push({
           path: files[k].path,
           start: Math.max(files[k].used),
@@ -57,6 +62,9 @@ module.exports = function(torrentInfo){
       }
     }
     var piece = new Piece(torrentInfo.pieces.slice(i, i + 20),  curPieceLength, i / 20, pieceFiles, pieceLength);
+    piece.on('pieceExists', function(piece){
+      bitMap[piece.index] = 1;
+    });
     piece.on('pieceFinished', function(piece){
       bitMap[piece.index] = 1;
       if (bitMap.reduce(function(memo, item){
@@ -66,18 +74,16 @@ module.exports = function(torrentInfo){
         self.emit('torrentFinished');
       }
     });
-    storage.push(piece);
-    bitMap.push(0);
-    peerMap.push([]);
+    piece.on('writeFailed', self.checkForPiece);
+    storage[i / 20] = piece;
+    bitMap[i / 20] = 0;
+    peerMap[ i / 20] = [];
+    piece.readFromDisk();
   }
   console.log('bitfield created, storage has length', storage.length);
 };
 
 util.inherits(module.exports, events.EventEmitter);
-
-module.exports.prototype.get = function(index){
-  return storage[index];
-};
 
 module.exports.prototype.length = function(index){
   return storage.length;
@@ -98,6 +104,10 @@ module.exports.prototype.uploaded = function(){
   return 0;
 };
 
+module.exports.prototype.bitField = function(){
+  return bitMap;
+};
+
 module.exports.prototype.registerPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
     if (peer.bitField[i] && peerMap[i]){
@@ -110,9 +120,6 @@ module.exports.prototype.unregisterPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
     if (peer.bitField[i] && peerMap[i]){
       peerMap[i].splice(peerMap[i].indexOf(peer), 1);
-      if (peerMap[i].length === 0){
-        console.log('piece ', i, ' is no longer available');
-      }
     }
   }
 };
@@ -121,12 +128,27 @@ module.exports.prototype.registerPeerPiece = function(peer, index){
   peerMap[index].push(peer);
 };
 
+module.exports.prototype.isFinished = function(){
+  if (bitMap.reduce(function(memo, item){
+        return memo += item;
+      }, 0) === bitMap.length){
+        console.log('torrent finished!!!');
+        return true;
+  } else {
+    return false;
+  }
+};
+
+module.exports.prototype.sendPiece = function(request, peer){
+  peer.sendPiece(storage[request.index].getBlock(request.begin, request.length));
+};
+
 module.exports.prototype.checkForPiece = function(){
   console.log('checking for pieces');
   for (var i = 0; i < storage.length; i++){
-    if (! storage[i].assignedPeer && peerMap[i] && peerMap[i].length > 0){
+    if (! bitMap[i] && ! storage[i].assignedPeer && peerMap[i] && peerMap[i].length > 0){
       for (var j = 0; j < peerMap[i].length; j++){
-        if (! peerMap[i][j].assignedPiece && peerMap[i][j].isConnected && peerMap[i][j].hasHandshake && ! peerMap[i][j].choking){
+        if (! peerMap[i][j].assignedPiece && peerMap[i][j].isConnected && peerMap[i][j].sentHandshake && peerMap[i][j].receivedHandshake && ! peerMap[i][j].choking){
           peerMap[i][j].assignedPiece = storage[i];
           storage[i].assignedPeer = peerMap[i][j];
           peerMap[i][j].emit('assignedPiece');
