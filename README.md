@@ -42,7 +42,7 @@ long term features
 
 write tests
 
-need to have a list of completed torrents for seeding
+time piece requests out after 2 minutes and request from another peer
 
 remove pieces from memory once they are completed, read from fs when requested
 
@@ -56,3 +56,5 @@ implemente udp tracker requests
 
 log stats at the end
 (number of peers downloaded from, number of each type of message sent and received)
+
+need to have a list of completed torrents for seeding
