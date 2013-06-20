@@ -11,7 +11,7 @@ basic bitTorrent client written in node.js that you can run from the command lin
 
 status
 
-able to download files as well as seed files.
+able to download as well as seed files.
 
 only able to make requests to http trackers, some of which the client works with and some which don't.
 I've been testing using the fedora tracker.
