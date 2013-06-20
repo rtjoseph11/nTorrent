@@ -40,6 +40,7 @@ Peer.prototype.connect = function(){
     self.connection.connect(self.port, self.ip);
   }
 
+  self.connection.removeAllListeners();
   self.eventBindings();
 
   self.connection.on('connect', function(){
@@ -130,9 +131,7 @@ Peer.prototype.hasPiece = function(index){
 
 Peer.prototype.sendPiece = function(block){
   var self = this;
-  self.connection.write(messages.generateBlock(block), function(){
-    console.log('sent piece ', block.index, ' begin ', block.begin, ' to peer ', self.id);
-  });
+  self.connection.write(messages.generateBlock(block));
 };
 
 Peer.prototype.sendBitField = function(bitField){

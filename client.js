@@ -57,18 +57,22 @@ var peerBindings = function(peer){
   peer.on('disconnect', pieceField.unregisterPeer);
   peer.on('pieceRequest', pieceField.sendPiece);
 };
-//need to add a listener for unprompted connections ... ie a peer wants to connect to me
+
+//sandbox mode is for testing against the local computer
 if (process.argv[process.argv.length - 2] === 'sandbox'){
   var buf = new Buffer(6);
+  //these 4 numbers are this computers ip address
   buf.writeUInt8(10, 0);
   buf.writeUInt8(0, 1);
   buf.writeUInt8(1, 2);
   buf.writeUInt8(240, 3);
+  //this is the port.. make sure to not use a port already in use
   buf.writeUInt16BE(process.argv[process.argv.length - 1], 4);
   var sandboxPeer = new Peer(buf);
   peerBindings(sandboxPeer);
   peers.add(sandboxPeer, buf);
 } else {
+  //what actually gets used when not in sandbox mode
   var uri;
   if(torrent.announce.toString('binary').substring(0,4) === 'http'){
     uri = torrent.announce.toString('binary') + '?';
@@ -131,6 +135,7 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
   !torrentFinished && trackerRequest();
 }
 
+//this handles unsolicted peers
 var client = net.createServer(function(c){
   console.log('unsolicted peer connected!');
   var buf = new Buffer(6);

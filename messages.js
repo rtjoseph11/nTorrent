@@ -151,7 +151,6 @@ exports.consumeMessage = function(message, peer){
       break;
       case 6:
       //request
-      console.log('peer ', peer.id , ' sent a request');
       peer.emit('pieceRequest', getRequest(message.data.slice(1)), peer);
       break;
       case 7:
