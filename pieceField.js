@@ -100,7 +100,7 @@ module.exports.prototype.uploaded = function(){
 
 module.exports.prototype.registerPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
-    if (peer.bitField[i]){
+    if (peer.bitField[i] && peerMap[i]){
       peerMap[i].push(peer);
     }
   }
@@ -108,7 +108,7 @@ module.exports.prototype.registerPeer = function(peer){
 
 module.exports.prototype.unregisterPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
-    if (peer.bitField[i]){
+    if (peer.bitField[i] && peerMap[i]){
       peerMap[i].splice(peerMap[i].indexOf(peer), 1);
       if (peerMap[i].length === 0){
         console.log('piece ', i, ' is no longer available');

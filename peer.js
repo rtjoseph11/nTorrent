@@ -26,6 +26,7 @@ util.inherits(Peer, events.EventEmitter);
 Peer.prototype.connect = function(){
   var self = this;
   self.hasHandshake = false;
+  self.connectionError = false;
   self.connection = new net.Socket();
   self.connection.connect(self.port, self.ip);
   var messageParser = new MessageParser(self, infoHash, messages);
@@ -42,14 +43,16 @@ Peer.prototype.connect = function(){
     });
   });
 
-  self.connection.on('timeout', function(){
-    console.log('timeout!');
+  self.connection.on('error', function(exception){
+    self.connectionError = true;
+    self.isConnected = false;
+    self.hasHandshake = false;
     if (self.assignedPiece){
       self.assignedPiece.assignedPeer = null;
       self.emit('floatingPiece');
     }
     self.emit('disconnect', self);
-    self.connection.end();
+    console.log('peer ', self.id, ' Exception: ', exception);
   });
 
   self.connection.on('close', function(hadError){
@@ -62,21 +65,17 @@ Peer.prototype.connect = function(){
     self.disconnect();
   });
 
-  self.connection.on('error', function(exception){
-    self.connectionError = true;
-    self.isConnected = false;
-    self.hasHandshake = false;
+  self.connection.on('timeout', function(){
     if (self.assignedPiece){
       self.assignedPiece.assignedPeer = null;
       self.emit('floatingPiece');
     }
     self.emit('disconnect', self);
-    console.log('peer ', self.id, ' Exception: ', exception);
+    self.connection.end();
   });
 };
 
 Peer.prototype.disconnect = function(){
-  if(this.connection){
     this.isConnected = false;
     this.hasHandshake = false;
     if (this.assignedPiece){
@@ -86,7 +85,6 @@ Peer.prototype.disconnect = function(){
     }
     this.emit('disconnect', this);
     this.connection.end();
-  }
 };
 
 Peer.prototype.generateBitField = function(bitString){
