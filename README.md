@@ -26,6 +26,7 @@ how to use
 after cloning the repo, from the command line
 
 node client.js /path/to/torrentFile [port you want to listen on] [seed/noseed]
+example: node client.js ./testdata/linuxmint.torrent 6881 seed
 
 the files will be downloaded to the /downloads directory which is in the same directory as client.js
 
