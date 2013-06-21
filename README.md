@@ -1,8 +1,6 @@
 nTorrent
 ============
 
-simple version working
-
 goal
 
 basic bitTorrent client written in node.js that you can run from the command line
