@@ -42,8 +42,6 @@ long term features
 
 write tests
 
-time piece requests out after 2 minutes and request from another peer
-
 remove pieces from memory once they are completed, read from fs when requested
 
 requests each piece from multiple peers instead of just one
