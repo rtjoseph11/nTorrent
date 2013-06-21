@@ -56,6 +56,10 @@ var peerBindings = function(peer){
   peer.on('hasPiece', pieceField.registerPeerPiece);
   peer.on('disconnect', pieceField.unregisterPeer);
   peer.on('pieceRequest', pieceField.sendPiece);
+  peer.on('pieceTimeout', function(p){
+    pieceField.banPeer(p);
+    p.releasePiece();
+  });
 };
 
 //sandbox mode is for testing against the local computer
@@ -111,8 +115,7 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
         var bodyObj = bencode.decode(body);
         if (!bodyObj['failure reason']){
           if (!torrentFinished && peers.length() < 500){
-            console.log('next announce in ', Math.max(bodyObj.minInterval ? bodyObj.minInterval : bodyObj.interval, 60), ' seconds');
-            console.log('received ', bodyObj.peers.length / 6, ' peers');
+            console.log('requesting peers in 60 seoncds');
             setTimeout(trackerRequest, 60000);
           }
           for (var i = 0; i < bodyObj.peers.length; i += 6){

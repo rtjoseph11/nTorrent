@@ -155,8 +155,7 @@ exports.consumeMessage = function(message, peer){
       break;
       case 7:
       //piece
-      peer.pendingRequest = false;
-      peer.assignedPiece.writeBlock(getBlock(message.data.slice(1)));
+      peer.writeBlock(getBlock(message.data.slice(1)));
       break;
     }
   }

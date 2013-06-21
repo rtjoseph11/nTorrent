@@ -55,13 +55,10 @@ Peer.prototype.disconnect = function(){
     this.receivedHandshake = false;
     this.sentHandshake = false;
     if (this.assignedPiece){
-      this.assignedPiece.currentLength = 0;
-      this.assignedPiece.assignedPeer = null;
-      this.pendingRequest = false;
-      this.emit('floatingPiece');
-      console.log('floating piece');
+      this.releasePiece();
     }
     this.emit('disconnect', this);
+    this.connection.removeAllListeners();
     this.connection.end();
 };
 
@@ -80,16 +77,30 @@ Peer.prototype.generateBitField = function(bitString){
 Peer.prototype.getPiece = function(){
   var self = this;
   if (! self.assignedPiece || self.choking || ! self.isConnected || ! self.sentHandshake || ! self.receivedHandshake){
-    if (self.assignedPiece){
-      self.assignedPiece.assignedPeer = null;
-      self.assignedPiece = null;
-      self.emit('floatingPiece');
-    }
+    self.releasePiece();
   } else if (!self.pendingRequest){
     self.connection.write(messages.generateRequest(self.assignedPiece), function(){
-      self.pendingRequset = true;
+      self.pendingRequest = true;
+      self.requestTimeout = setTimeout(function(){
+        console.log('piece ', self.assignedPiece.index, ' timed out!!!!');
+        self.emit('pieceTimeout', self);
+      }, 60000);
     });
   }
+};
+
+Peer.prototype.releasePiece = function(){
+  if (this.requestTimeout){
+    clearTimeout(this.requestTimeout);
+    this.requestTimeout = undefined;
+  }
+  if (this.assignedPiece){
+      this.assignedPiece.currentLength = 0;
+      this.assignedPiece.assignedPeer = null;
+      this.pendingRequest = false;
+  }
+  console.log('floating piece');
+  this.emit('floatingPiece');
 };
 
 Peer.prototype.unchoke = function(){
@@ -163,6 +174,17 @@ Peer.prototype.sendHandshake = function(){
   });
 };
 
+Peer.prototype.writeBlock = function(block){
+  if(this.requestTimeout){
+    clearTimeout(this.requestTimeout);
+    this.requestTimeout = undefined;
+  }
+  this.pendingRequest = false;
+  if (this.assignedPiece){
+    this.assignedPiece.writeBlock(block);
+  }
+};
+
 Peer.prototype.eventBindings = function(){
   var self = this;
 
@@ -179,7 +201,6 @@ Peer.prototype.eventBindings = function(){
   self.connection.on('close', function(hadError){
     if (hadError){
       self.connectionError = true;
-      console.log('peer ', self.id, ' connection closed due to error');
     } else {
       console.log('peer ', self.id, ' connection closed!');
     }

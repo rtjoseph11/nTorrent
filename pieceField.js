@@ -5,6 +5,7 @@ var pieceLength;
 var Piece = require('./piece');
 var storage = [];
 var peerMap = [];
+var banMap = {};
 var bitMap = [];
 var files = [];
 var totalLength = 0;
@@ -77,7 +78,8 @@ module.exports = function(torrentInfo){
     piece.on('writeFailed', self.checkForPiece);
     storage[i / 20] = piece;
     bitMap[i / 20] = 0;
-    peerMap[ i / 20] = [];
+    peerMap[ i / 20] = {};
+    banMap[ i / 20] = {};
     piece.readFromDisk();
   }
   console.log('bitfield created, storage has length', storage.length);
@@ -111,7 +113,7 @@ module.exports.prototype.bitField = function(){
 module.exports.prototype.registerPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
     if (peer.bitField[i] && peerMap[i]){
-      peerMap[i].push(peer);
+      peerMap[i][peer.id] = peer;
     }
   }
 };
@@ -119,13 +121,17 @@ module.exports.prototype.registerPeer = function(peer){
 module.exports.prototype.unregisterPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
     if (peer.bitField[i] && peerMap[i]){
-      peerMap[i].splice(peerMap[i].indexOf(peer), 1);
+      delete peerMap[i][peer.id];
     }
   }
 };
 
 module.exports.prototype.registerPeerPiece = function(peer, index){
-  peerMap[index].push(peer);
+  peerMap[index][peer.id] = peer;
+};
+
+module.exports.prototype.banPeer = function(peer, index){
+  banMap[peer.id] = true;
 };
 
 module.exports.prototype.isFinished = function(){
@@ -146,12 +152,12 @@ module.exports.prototype.sendPiece = function(request, peer){
 module.exports.prototype.checkForPiece = function(){
   console.log('checking for pieces');
   for (var i = 0; i < storage.length; i++){
-    if (! bitMap[i] && ! storage[i].assignedPeer && peerMap[i] && peerMap[i].length > 0){
-      for (var j = 0; j < peerMap[i].length; j++){
-        if (! peerMap[i][j].assignedPiece && peerMap[i][j].isConnected && peerMap[i][j].sentHandshake && peerMap[i][j].receivedHandshake && ! peerMap[i][j].choking){
-          peerMap[i][j].assignedPiece = storage[i];
-          storage[i].assignedPeer = peerMap[i][j];
-          peerMap[i][j].emit('assignedPiece');
+    if (! bitMap[i] && ! storage[i].assignedPeer){
+      for (var key in peerMap[i]){
+        if (! banMap[key] && ! peerMap[i][key].assignedPiece && peerMap[i][key].isConnected && peerMap[i][key].sentHandshake && peerMap[i][key].receivedHandshake && ! peerMap[i][key].choking){
+          peerMap[i][key].assignedPiece = storage[i];
+          storage[i].assignedPeer = peerMap[i][key];
+          peerMap[i][key].emit('assignedPiece');
           break;
         }
       }
