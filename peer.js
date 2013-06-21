@@ -18,7 +18,7 @@ var Peer = function(buffer, connection){
   this.interested = false;
   this.sentHandshake = false;
   this.receivedHandshake = false;
-  this.assignedPiece = null;
+  this.assignedBlock = null;
   this.id = ++id;
   this.bitField = [];
   if (connection){
@@ -54,16 +54,15 @@ Peer.prototype.disconnect = function(){
     this.isConnected = false;
     this.receivedHandshake = false;
     this.sentHandshake = false;
-    if (this.assignedPiece){
-      this.releasePiece();
-    }
-    this.emit('disconnect', this);
     this.connection.removeAllListeners();
     this.connection.end();
+    if (this.assignedBlock){
+      this.releaseBlock();
+    }
+    this.emit('disconnect', this);
 };
 
 Peer.prototype.generateBitField = function(bitString){
-  console.log('peer ', this.id , ' sent a bitfield');
   var count = 0;
   for (var i = 0; i < bitString.length; i++){
     if (count < numPieces){
@@ -74,60 +73,55 @@ Peer.prototype.generateBitField = function(bitString){
   this.emit('bitField', this);
 };
 
-Peer.prototype.getPiece = function(){
+Peer.prototype.getBlock = function(block){
   var self = this;
-  if (! self.assignedPiece || self.choking || ! self.isConnected || ! self.sentHandshake || ! self.receivedHandshake){
-    self.releasePiece();
+  self.assignedBlock = block;
+  if (self.choking || ! self.isConnected || ! self.sentHandshake || ! self.receivedHandshake){
+    self.releaseBlock();
   } else if (!self.pendingRequest){
-    self.connection.write(messages.generateRequest(self.assignedPiece), function(){
+    self.connection.write(messages.generateRequest(block), function(){
       self.pendingRequest = true;
       self.requestTimeout = setTimeout(function(){
-        console.log('piece ', self.assignedPiece.index, ' timed out!!!!');
-        self.emit('pieceTimeout', self);
-      }, 60000);
+        console.log('block ', block.index, ' timed out!!!!');
+        if (self.assignedBlock){
+          self.releaseBlock();
+        }
+        self.emit('blockTimeout', self);
+      }, 30000);
     });
   }
 };
 
-Peer.prototype.releasePiece = function(){
+Peer.prototype.releaseBlock = function(){
   if (this.requestTimeout){
     clearTimeout(this.requestTimeout);
     this.requestTimeout = undefined;
   }
-  if (this.assignedPiece){
-      this.assignedPiece.currentLength = 0;
-      this.assignedPiece.assignedPeer = null;
-      this.pendingRequest = false;
+  if (this.assignedBlock){
+    this.emit('blockRelease', this.assignedBlock);
+    this.assignedBlock = null;
   }
-  console.log('floating piece');
-  this.emit('floatingPiece');
+  console.log('floating block');
+  this.emit('floatingBlock');
 };
 
 Peer.prototype.unchoke = function(){
-  console.log('peer ', this.id , ' is no longer choking the client');
   this.choking = false;
-  if (this.assignedPiece){
-        this.getPiece();
-  } else {
-    this.emit('available');
-  }
+  this.emit('available');
 };
 
 Peer.prototype.choke = function(){
-  console.log('peer ', this.id , ' is now choking');
   this.choking = true;
 };
 
 Peer.prototype.isInterested = function(){
   this.interested = true;
   this.amChoking = false;
-  console.log('peer ', this.id , ' is now interested');
   this.sendUnchoke();
 };
 
 Peer.prototype.isUnInterested = function(){
   this.interested = false;
-  console.log('peer ', this.id , ' is now uninterested');
 };
 
 Peer.prototype.keepAlive = function(){
@@ -135,42 +129,44 @@ Peer.prototype.keepAlive = function(){
   this.emit('keepAlive');
 };
 
-Peer.prototype.hasPiece = function(index){
-   this.bitField[index] = true;
-   this.emit('hasPiece', this, index);
+Peer.prototype.registerPiece = function(index){
+  this.bitField[index] = true;
+  this.emit('hasPiece', this, index);
 };
 
-Peer.prototype.sendPiece = function(block){
-  var self = this;
-  self.connection.write(messages.generateBlock(block));
+Peer.prototype.hasPiece = function(index){
+  return this.bitField[index];
+};
+
+Peer.prototype.sendHasPiece = function(index){
+  this.connection.write(messages.generateHasPiece(index));
+};
+
+Peer.prototype.hasHandshake = function(){
+  return this.sentHandshake && this.receivedHandshake;
+};
+
+Peer.prototype.sendBlock = function(block){
+  this.connection.write(messages.generateBlock(block));
 };
 
 Peer.prototype.sendBitField = function(bitField){
-  var self = this;
-  self.connection.write(messages.generateBitField(bitField), function(){
-    console.log('sent bitfield to peer ', self.id);
-  });
+  this.connection.write(messages.generateBitField(bitField));
 };
 
 Peer.prototype.sendInterested = function(){
-  var self = this;
-  self.connection.write(messages.generateInterested(), function(){
-    console.log('expressing interested to peer ', self.id);
-  });
+  this.amInterested = true;
+  this.connection.write(messages.generateInterested());
 };
 
 Peer.prototype.sendUnchoke = function(){
-  var self = this;
-  self.connection.write(messages.generateUnchoke(), function(){
-    console.log('unchoking peer ', self.id);
-  });
+  this.connection.write(messages.generateUnchoke());
 };
 
 Peer.prototype.sendHandshake = function(){
   var self = this;
   self.connection.write(messages.generateHandshake(infoHash, clientID), function(){
     self.sentHandshake = true;
-    console.log('wrote handshake to peer ', self.id ,'!');
   });
 };
 
@@ -179,10 +175,11 @@ Peer.prototype.writeBlock = function(block){
     clearTimeout(this.requestTimeout);
     this.requestTimeout = undefined;
   }
-  this.pendingRequest = false;
-  if (this.assignedPiece){
-    this.assignedPiece.writeBlock(block);
+  if(this.assignedBlock){
+    this.assignedBlock = null;
   }
+  this.pendingRequest = false;
+  this.emit('blockComplete', block, this);
 };
 
 Peer.prototype.eventBindings = function(){

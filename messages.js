@@ -73,14 +73,14 @@ exports.generateBitField = function(bitMap){
   return result;
 };
 
-exports.generateRequest = function(piece){
+exports.generateRequest = function(block){
   //2^14 = 16384
   var result = new Buffer(17);
   result.writeUInt32BE(13 , 0);
   result.writeUInt8(6 , 4);
-  result.writeUInt32BE(piece.index, 5);
-  result.writeUInt32BE(piece.currentLength, 9);
-  result.writeUInt32BE(Math.min(16384, piece.data.length - piece.currentLength), 13);
+  result.writeUInt32BE(block.index, 5);
+  result.writeUInt32BE(block.begin, 9);
+  result.writeUInt32BE(block.length, 13);
   return result;
 };
 
@@ -98,6 +98,14 @@ exports.generateInterested = function(){
   var result = new Buffer(5);
   result.writeUInt32BE(1, 0);
   result.writeUInt8(2, 4);
+  return result;
+};
+
+exports.generateHasPiece = function(index){
+  var result = new Buffer(9);
+  result.writeUInt32BE(5, 0);
+  result.writeUInt8(4,4);
+  result.writeUInt32BE(index, 5);
   return result;
 };
 
@@ -143,7 +151,7 @@ exports.consumeMessage = function(message, peer){
       break;
       case 4:
       //have
-      peer.hasPiece(getPieceIndex(message.data.slice(1)));
+      peer.registerPiece(getPieceIndex(message.data.slice(1)));
       break;
       case 5:
       //bitfield
@@ -151,7 +159,7 @@ exports.consumeMessage = function(message, peer){
       break;
       case 6:
       //request
-      peer.emit('pieceRequest', getRequest(message.data.slice(1)), peer);
+      peer.emit('blockRequest', getRequest(message.data.slice(1)), peer);
       break;
       case 7:
       //piece

@@ -32,6 +32,8 @@ var clientID = '-NT0000-' + Date.now().toString().substring(1);
 var Peer = require('./peer')(infoHash, clientID, messages, pieceField.length());
 var peers = new Peers();
 var reconnect = setInterval(peers.connect, 60000);
+pieceField.on('pieceFinished', pieceField.checkForPiece);
+pieceField.on('pieceFinished', peers.broadcastPiece);
 pieceField.on('torrentFinished', peers.disconnect);
 pieceField.on('torrentFinished', function(){
   torrentFinished = true;
@@ -42,24 +44,19 @@ var torrentFinished = pieceField.isFinished();
 var peerBindings = function(peer){
   peer.on('bitField', pieceField.registerPeer);
   peer.on('receivedHandshake', function(p){
-    if (p.sentHandshake){
-      p.sendInterested();
-    } else {
+    if (!p.sentHandshake){
       p.sendHandshake();
       p.sendBitField(pieceField.bitField());
     }
   });
   peer.on('available', pieceField.checkForPiece);
-  peer.on('floatingPiece', pieceField.checkForPiece);
-  peer.on('assignedPiece', peer.getPiece);
-  peer.on('pieceFinished', pieceField.checkForPiece);
+  peer.on('floatingBlock', pieceField.checkForPiece);
+  peer.on('blockRelease', pieceField.releaseBlock);
   peer.on('hasPiece', pieceField.registerPeerPiece);
   peer.on('disconnect', pieceField.unregisterPeer);
-  peer.on('pieceRequest', pieceField.sendPiece);
-  peer.on('pieceTimeout', function(p){
-    pieceField.banPeer(p);
-    p.releasePiece();
-  });
+  peer.on('blockRequest', pieceField.sendBlock);
+  peer.on('blockTimeout', pieceField.banPeer);
+  peer.on('blockComplete', pieceField.writeBlock);
 };
 
 //sandbox mode is for testing against the local computer
@@ -135,7 +132,9 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
       }
     });
   };
-  !torrentFinished && trackerRequest();
+  if(!torrentFinished){
+    trackerRequest();
+  }
 }
 
 //this handles unsolicted peers
@@ -156,5 +155,5 @@ client.listen(port, function(){
   console.log('client bound to port ', port);
 });
 if (process.argv[3] !== 'seed'){
-  pieceField.on('torrentFinished', client.unref);
+  pieceField.on('torrentFinished', process.exit);
 }

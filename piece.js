@@ -6,34 +6,56 @@ module.exports = function(sha, length, index, files, standardLength){
   events.EventEmitter.call(this);
   this.sha = sha;
   this.data = new Buffer(length);
-  this.currentLength = 0;
-  this.assignedPeer = null;
   this.index = index;
   this.files = files;
   this.standardLength = standardLength;
+  this.blockMap = {};
+  this.blockPeers = {};
+  for (var i = 0; i < length; i+= 16384){
+    this.blockMap[i] = 0;
+  }
 };
 
 util.inherits(module.exports, events.EventEmitter);
 
 //consider doing the piece writing at the pieceField level since I have the index
-module.exports.prototype.writeBlock = function(block){
-  if (block.begin !== this.currentLength || block.index !== this.index){
-    console.log('begin or index did not match up indices: ' + this.index + ", " + block.index + " begins: " + block.begin + ", " + this.currentLength);
-    this.currentLength = 0;
-    this.assignedPeer = null;
-    this.emit('writeFailed');
+module.exports.prototype.writeBlock = function(block, peer){
+  if (block.index !== this.index){
+    throw new Error('indices did not match up: ' + this.index + ", " + block.index);
   } else {
-    block.data.copy(this.data, this.currentLength);
-    this.currentLength += block.data.length;
-    if (this.currentLength === this.data.length){
-      this.validate();
-    } else {
-      this.assignedPeer && this.assignedPeer.getPiece();
+    if (!this.blockMap[block.begin]){
+      block.data.copy(this.data, block.begin);
+      delete this.blockMap[block.begin];
+      delete this.blockPeers[block.begin];
+    }
+    var remBlocks = 0;
+    for (var begin in this.blockMap){
+      remBlocks += 1;
+    }
+    if (remBlocks === 0){
+        this.validate();
+    } else if (!peer.assignedBlock) {
+        this.assignBlock(peer);
+    }
+  }
+};
+
+module.exports.prototype.assignBlock = function(peer){
+  for (var begin in this.blockMap){
+    if (! this.blockPeers[begin]){
+      this.blockPeers[begin] = peer.id;
+      peer.getBlock({
+        index: this.index,
+        begin: Number(begin),
+        length: Math.min(16384, this.data.length - Number(begin))
+      });
+      break;
     }
   }
 };
 
 module.exports.prototype.getBlock = function(begin, length){
+  //refactor so this reads from disk
   return {
     index: this.index,
     begin: begin,
@@ -45,22 +67,22 @@ module.exports.prototype.validate = function(){
   if (crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
     console.log('succesfully received piece ', this.index);
     this.writeToDisk();
-    this.assignedPeer.assignedPiece = null;
     this.emit('pieceFinished', this);
-    this.assignedPeer.emit('pieceFinished');
   } else {
-    this.currentLength = 0;
-    console.log('peer ', this.assignedPeer.id, ' failed to download piece ', this.index);
-    var peer = this.assignedPeer;
-    this.assignedPeer = null;
-    peer.emit('pieceFailed', this.assignedPeer);
+    this.blockMap = {};
+    this.blockPeers = {};
+    for (var i = 0; i < this.data.length; i+= 16384){
+      this.blockMap[i] = 0;
+    }
+    console.log('failed to download piece ', this.index);
+    this.emit('writeFailed');
   }
 };
 
 module.exports.prototype.writeToDisk = function(){
   var used = 0;
     for (var i = 0; i < this.files.length; i++){
-      console.log('peer ', this.assignedPeer.id, ' writing ', this.data.slice(used, used + this.files[i].writeLength).length, ' bytes at position ', this.files[i].start, ' in file ', i);
+      console.log('writing ', this.data.slice(used, used + this.files[i].writeLength).length, ' bytes at position ', this.files[i].start, ' in file ', i);
       var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start, flags: 'r+'});
       pieceWriter.end(this.data.slice(used, used + this.files[i].writeLength));
       used += this.files[i].writeLength;

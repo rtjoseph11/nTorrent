@@ -63,9 +63,11 @@ module.exports = function(torrentInfo){
       }
     }
     var piece = new Piece(torrentInfo.pieces.slice(i, i + 20),  curPieceLength, i / 20, pieceFiles, pieceLength);
+
     piece.on('pieceExists', function(piece){
       bitMap[piece.index] = 1;
     });
+
     piece.on('pieceFinished', function(piece){
       bitMap[piece.index] = 1;
       if (bitMap.reduce(function(memo, item){
@@ -73,13 +75,17 @@ module.exports = function(torrentInfo){
       }, 0) === bitMap.length){
         console.log('torrent finished!!!');
         self.emit('torrentFinished');
+      } else {
+        self.emit('pieceFinished', piece.index);
       }
     });
+
     piece.on('writeFailed', self.checkForPiece);
+
     storage[i / 20] = piece;
     bitMap[i / 20] = 0;
     peerMap[ i / 20] = {};
-    banMap[ i / 20] = {};
+
     piece.readFromDisk();
   }
   console.log('bitfield created, storage has length', storage.length);
@@ -112,8 +118,11 @@ module.exports.prototype.bitField = function(){
 
 module.exports.prototype.registerPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
-    if (peer.bitField[i] && peerMap[i]){
+    if (peer.bitField[i]){
       peerMap[i][peer.id] = peer;
+      if (!bitMap[i] && !peer.amInterested){
+        peer.sendInterested();
+      }
     }
   }
 };
@@ -128,9 +137,12 @@ module.exports.prototype.unregisterPeer = function(peer){
 
 module.exports.prototype.registerPeerPiece = function(peer, index){
   peerMap[index][peer.id] = peer;
+  if (!bitMap[i] && !peer.amInterested){
+    peer.sendInterested();
+  }
 };
 
-module.exports.prototype.banPeer = function(peer, index){
+module.exports.prototype.banPeer = function(peer){
   banMap[peer.id] = true;
 };
 
@@ -145,19 +157,25 @@ module.exports.prototype.isFinished = function(){
   }
 };
 
-module.exports.prototype.sendPiece = function(request, peer){
-  peer.sendPiece(storage[request.index].getBlock(request.begin, request.length));
+module.exports.prototype.releaseBlock = function(block){
+  delete storage[block.index].blockPeers[block.begin];
+};
+
+module.exports.prototype.sendBlock = function(request, peer){
+  peer.sendBlock(storage[request.index].getBlock(request.begin, request.length));
+};
+
+module.exports.prototype.writeBlock = function(block, peer){
+  storage[block.index].writeBlock(block, peer);
 };
 
 module.exports.prototype.checkForPiece = function(){
   console.log('checking for pieces');
   for (var i = 0; i < storage.length; i++){
-    if (! bitMap[i] && ! storage[i].assignedPeer){
+    if (! bitMap[i]){
       for (var key in peerMap[i]){
-        if (! banMap[key] && ! peerMap[i][key].assignedPiece && peerMap[i][key].isConnected && peerMap[i][key].sentHandshake && peerMap[i][key].receivedHandshake && ! peerMap[i][key].choking){
-          peerMap[i][key].assignedPiece = storage[i];
-          storage[i].assignedPeer = peerMap[i][key];
-          peerMap[i][key].emit('assignedPiece');
+        if (!banMap[key] && !peerMap[i][key].assignedBlock && peerMap[i][key].isConnected && peerMap[i][key].hasHandshake() && !peerMap[i][key].choking){
+          storage[i].assignBlock(peerMap[i][key]);
           break;
         }
       }

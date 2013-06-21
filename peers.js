@@ -21,7 +21,7 @@ module.exports.prototype.length = function(){
 
 module.exports.prototype.connect = function(){
   for (var key in storage){
-    if(storage[key] && !storage[key].isConnected && ! storage[key].connectionError){
+    if(!storage[key].isConnected && ! storage[key].connectionError){
       storage[key].connect();
     }
   }
@@ -29,6 +29,14 @@ module.exports.prototype.connect = function(){
 
 module.exports.prototype.hasPeer = function(buffer){
   return !! inStorage[buffer.toString('hex')];
+};
+
+module.exports.prototype.broadcastPiece = function(index){
+  for (var key in storage){
+    if(storage[key].isConnected && storage[key].hasHandshake() && !storage[key].hasPiece(index)){
+      storage[key].sendHasPiece(index);
+    }
+  }
 };
 
 module.exports.prototype.disconnect = function(){
