@@ -21,8 +21,8 @@ does not work with node .8 because the crypto module does not return buffers aft
 
 how to use
 
-after cloning the repo, from the command line
-
+after cloning the repo run npm install, then
+from the command line:
 node client.js /path/to/torrentFile [port you want to listen on] [seed/noseed]
 example: node client.js ./testdata/linuxmint.torrent 6881 seed
 

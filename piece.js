@@ -12,7 +12,7 @@ module.exports = function(sha, length, index, files, standardLength){
   this.blockMap = {};
   this.blockPeers = {};
   for (var i = 0; i < length; i+= 16384){
-    this.blockMap[i] = 0;
+    this.blockMap[i] = 1;
   }
 };
 
@@ -35,14 +35,14 @@ module.exports.prototype.writeBlock = function(block, peer){
     if (remBlocks === 0){
         this.validate();
     } else if (!peer.assignedBlock) {
-        this.assignBlock(peer);
+      this.emit('blockWritten', this, peer, block);
     }
   }
 };
 
-module.exports.prototype.assignBlock = function(peer){
+module.exports.prototype.assignBlock = function(peer, isEndGame){
   for (var begin in this.blockMap){
-    if (! this.blockPeers[begin]){
+    if (! this.blockPeers[begin] || isEndGame){
       this.blockPeers[begin] = peer.id;
       peer.getBlock({
         index: this.index,

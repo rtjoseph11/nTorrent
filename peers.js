@@ -27,6 +27,14 @@ module.exports.prototype.connect = function(){
   }
 };
 
+module.exports.prototype.cancelBlock = function(block){
+  for (var key in storage){
+    if(storage[key].assignedBlock && storage[key].assignedBlock.index === block.index && storage[key].assignedBlock.begin === block.begin && storage[key].pendingRequest){
+      storage[key].sendCancelRequest(block);
+    }
+  }
+};
+
 module.exports.prototype.hasPeer = function(buffer){
   return !! inStorage[buffer.toString('hex')];
 };

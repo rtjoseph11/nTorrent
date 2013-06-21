@@ -116,6 +116,16 @@ exports.generateUnchoke = function(){
   return result;
 };
 
+exports.generateCancel = function(block){
+  var result = new Buffer(17);
+  result.writeUInt32BE(12, 0);
+  result.writeUInt8(8, 4);
+  result.writeUInt32BE(block.index, 5);
+  result.writeUInt32BE(block.begin, 9);
+  result.writeUInt32BE(block.length, 13);
+  return result;
+};
+
 exports.consumeHandshake = function(buffer, infoHash, peer){
   if( buffer.toString('utf8', 1, buffer.readUInt8(0) + 1) === "BitTorrent protocol" && buffer.slice(28,48).toString('binary') === infoHash.toString('binary')){
     console.log('handshake with peer ', peer.id, ' successful!!');
@@ -164,6 +174,10 @@ exports.consumeMessage = function(message, peer){
       case 7:
       //piece
       peer.writeBlock(getBlock(message.data.slice(1)));
+      break;
+      case 8:
+      //cancel
+      peer.cancelRequest(getBlock(message.data.slice(1)));
       break;
     }
   }

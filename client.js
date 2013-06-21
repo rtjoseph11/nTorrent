@@ -39,6 +39,7 @@ pieceField.on('torrentFinished', function(){
   torrentFinished = true;
   clearInterval(reconnect);
 });
+pieceField.on('cancelBlock', peers.cancelBlock);
 
 var torrentFinished = pieceField.isFinished();
 var peerBindings = function(peer){

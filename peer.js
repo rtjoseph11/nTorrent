@@ -21,6 +21,7 @@ var Peer = function(buffer, connection){
   this.assignedBlock = null;
   this.id = ++id;
   this.bitField = [];
+  this.requestCancels = {};
   if (connection){
     this.connection = connection;
     this.isConnected = true;
@@ -124,6 +125,11 @@ Peer.prototype.isUnInterested = function(){
   this.interested = false;
 };
 
+Peer.prototype.cancelRequest = function(block){
+  this.requestCancels[block.index] = this.requestCancels[block.index] || {};
+  this.requestCancels[block.index][block.begin] = true;
+};
+
 Peer.prototype.keepAlive = function(){
   console.log('peer ', this.id , ' sent a keep alive');
   this.emit('keepAlive');
@@ -142,12 +148,25 @@ Peer.prototype.sendHasPiece = function(index){
   this.connection.write(messages.generateHasPiece(index));
 };
 
+Peer.prototype.sendCancelRequest = function(block){
+  var self = this;
+  self.connection.write(messages.generateCancel(block), function(){
+    self.assignedBlock = null;
+    self.pendingRequest = false;
+    self.emit('available');
+  });
+};
+
 Peer.prototype.hasHandshake = function(){
   return this.sentHandshake && this.receivedHandshake;
 };
 
 Peer.prototype.sendBlock = function(block){
-  this.connection.write(messages.generateBlock(block));
+  if (this.requestCancels[block.index] && this.requestCancels[block.index][block.begin]){
+    delete this.requestCancels[block.index][block.begin];
+  } else {
+    this.connection.write(messages.generateBlock(block));
+  }
 };
 
 Peer.prototype.sendBitField = function(bitField){
