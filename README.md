@@ -34,7 +34,7 @@ the files will be downloaded to the /downloads directory which is in the same di
 
 next step
 
-generate peerID instead of hardcoding
+endgame block requests to multiple peers
 
 ============
 
@@ -44,15 +44,11 @@ write tests
 
 remove pieces from memory once they are completed, read from fs when requested
 
-requests each piece from multiple peers instead of just one
-
 implement retrieving pieces by scarcity
 
 connect to multiple trackers
 
-implemente udp tracker requests
+implement udp tracker requests
 
 log stats at the end
 (number of peers downloaded from, number of each type of message sent and received)
-
-need to have a list of completed torrents for seeding
