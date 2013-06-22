@@ -46,7 +46,6 @@ Peer.prototype.connect = function(){
 
   self.connection.on('connect', function(){
     self.isConnected = true;
-    console.log('connected to peer ', self.id ,': ' + self.ip + ':' + self.port);
     self.sendHandshake();
   });
 };
@@ -129,7 +128,6 @@ Peer.prototype.cancelRequest = function(block){
 };
 
 Peer.prototype.keepAlive = function(){
-  console.log('peer ', this.id , ' sent a keep alive');
   this.emit('keepAlive');
 };
 
@@ -148,7 +146,6 @@ Peer.prototype.sendHasPiece = function(index){
 
 Peer.prototype.sendCancelRequest = function(block){
   var self = this;
-  console.log('sending a cancel request to peer ', self.id);
   self.connection.write(messages.generateCancel(block), function(){
     self.assignedBlock = null;
     self.pendingRequest = false;

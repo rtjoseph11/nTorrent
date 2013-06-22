@@ -18,7 +18,6 @@ module.exports = function(sha, length, index, files, standardLength){
 
 util.inherits(module.exports, events.EventEmitter);
 
-//consider doing the piece writing at the pieceField level since I have the index
 module.exports.prototype.writeBlock = function(block, peer){
   if (block.index !== this.index){
     throw new Error('indices did not match up: ' + this.index + ", " + block.index);
@@ -48,9 +47,6 @@ module.exports.prototype.assignBlock = function(peer, isEndGame){
   for (var begin in this.blockMap){
     if (!this.blockPeers[begin] || isEndGame){
       this.blockPeers[begin] = peer.id;
-      if (isEndGame){
-        console.log('assigned piece ', this.index, ', block ', begin, ' to peer ', peer.id);
-      }
       peer.assignedBlock = {
         index: this.index,
         begin: Number(begin),
@@ -94,7 +90,6 @@ module.exports.prototype.validate = function(){
 module.exports.prototype.writeToDisk = function(){
   var used = 0;
     for (var i = 0; i < this.files.length; i++){
-      console.log('writing ', this.data.slice(used, used + this.files[i].writeLength).length, ' bytes at position ', this.files[i].start, ' in file ', i);
       var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start, flags: 'r+'});
       pieceWriter.end(this.data.slice(used, used + this.files[i].writeLength));
       used += this.files[i].writeLength;
@@ -111,10 +106,8 @@ module.exports.prototype.readFromDisk = function(){
     }
   }
   if(crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
-    // console.log('have piece ', this.index);
     this.emit('pieceExists', this);
   } else {
     this.currentLength = 0;
-    // console.log('missing piece ', this.index);
   }
 };
