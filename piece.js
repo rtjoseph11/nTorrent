@@ -9,6 +9,7 @@ module.exports = function(sha, length, index, files, standardLength){
   this.index = index;
   this.files = files;
   this.standardLength = standardLength;
+  this.completed = false;
   this.blockMap = {};
   this.blockPeers = {};
   for (var i = 0; i < length; i+= 16384){
@@ -21,7 +22,7 @@ util.inherits(module.exports, events.EventEmitter);
 module.exports.prototype.writeBlock = function(block, peer){
   if (block.index !== this.index){
     throw new Error('indices did not match up: ' + this.index + ", " + block.index);
-  } else {
+  } else if (!this.completed){
     if (!this.blockMap[block.begin]){
       block.data.copy(this.data, block.begin);
       delete this.blockMap[block.begin];
@@ -63,11 +64,21 @@ module.exports.prototype.assignBlock = function(peer, isEndGame){
 };
 
 module.exports.prototype.getBlock = function(begin, length){
-  //refactor so this reads from disk
+  var filepath = "";
+  for (var i = 0; i < this.files.length; i++){
+    if (this.index * this.standardLength + begin >= this.files[i].start && this.index * this.standardLength + begin < this.files[i].start + this.files[i].writeLength){
+      filepath = this.files[i].path;
+      break;
+    }
+  }
+  var fd = fs.openSync(filepath, 'r');
+  var data = new Buffer(length);
+  fs.readSync(fd, data, 0, length, this.index * this.standardLength + begin);
+  fs.closeSync(fd);
   return {
     index: this.index,
     begin: begin,
-    data: this.data.slice(begin, begin + length)
+    data: data
   };
 };
 
@@ -75,6 +86,8 @@ module.exports.prototype.validate = function(){
   if (crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
     console.log('succesfully received piece ', this.index);
     this.writeToDisk();
+    this.completed = true;
+    delete this.data;
     this.emit('pieceFinished', this);
   } else {
     this.blockMap = {};
@@ -94,20 +107,28 @@ module.exports.prototype.writeToDisk = function(){
       pieceWriter.end(this.data.slice(used, used + this.files[i].writeLength));
       used += this.files[i].writeLength;
     }
+  delete this.data;
 };
 
 module.exports.prototype.readFromDisk = function(){
+  var used = 0;
   for(var i = 0; i < this.files.length; i++){
     if (fs.existsSync(this.files[i].path)){
       var fd = fs.openSync(this.files[i].path, 'r');
-      fs.readSync(fd, this.data, this.currentLength, this.files[i].writeLength, this.files[i].start);
-      this.currentLength += this.files[i].writeLength;
+      fs.readSync(fd, this.data, used, this.files[i].writeLength, this.files[i].start);
+      used += this.files[i].writeLength;
       fs.closeSync(fd);
     }
   }
   if(crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
+    this.completed = true;
+    delete this.data;
     this.emit('pieceExists', this);
   } else {
-    this.currentLength = 0;
+    this.blockMap = {};
+    this.blockPeers = {};
+    for (var j = 0; j < this.data.length; j+= 16384){
+      this.blockMap[j] = 0;
+    }
   }
 };

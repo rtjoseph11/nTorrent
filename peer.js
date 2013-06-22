@@ -81,12 +81,12 @@ Peer.prototype.getBlock = function(block){
     self.connection.write(messages.generateRequest(block), function(){
       self.pendingRequest = true;
       self.requestTimeout = setTimeout(function(){
-        console.log('block ', block.index, ' timed out!!!!');
+        console.log('piece ', block.index, ' had a block timed out!!!!');
         if (self.assignedBlock){
           self.releaseBlock();
         }
         self.emit('blockTimeout', self);
-      }, 30000);
+      }, 20000);
     });
   }
 };

@@ -22,7 +22,7 @@ module.exports = function(torrentInfo){
   if (torrentInfo.files){
     for (var j = 0; j < torrentInfo.files.length; j++){
       if (! fs.existsSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString())){
-        fs.writeFileSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString(), new Buffer(torrentInfo.files[j].length));
+        fs.writeFileSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString(), new Buffer(0));
       }
       files.push({
         path: downloadpath + '/' + torrentInfo.files[j].path[0].toString(),
@@ -34,7 +34,7 @@ module.exports = function(torrentInfo){
     }
   } else {
     if (! fs.existsSync(downloadpath + '/' + torrentInfo.name.toString())){
-      fs.writeFileSync(downloadpath + '/' + torrentInfo.name.toString(), new Buffer(torrentInfo.length));
+      fs.writeFileSync(downloadpath + '/' + torrentInfo.name.toString(), new Buffer(0));
     }
     files.push({
       path: downloadpath + '/' + torrentInfo.name.toString(),
@@ -87,7 +87,9 @@ module.exports = function(torrentInfo){
       p.assignBlock(peer, self.isEndGame());
     });
 
-    piece.on('writeFailed', self.checkForPiece);
+    piece.on('writeFailed', function(){
+      self.checkForPiece();
+    });
 
     storage[i / 20] = piece;
     bitMap[i / 20] = 0;
@@ -153,9 +155,9 @@ module.exports.prototype.registerPeerPiece = function(peer, index){
   }
 };
 
-module.exports.prototype.banPeer = function(peer){
-  banMap[peer.id] = true;
-};
+// module.exports.prototype.banPeer = function(peer){
+//   banMap[peer.id] = true;
+// };
 
 module.exports.prototype.isFinished = function(){
   if (bitMap.reduce(function(memo, item){
@@ -184,7 +186,7 @@ module.exports.prototype.checkForPiece = function(){
   for (var i = 0; i < storage.length; i++){
     if (! bitMap[i]){
       for (var key in peerMap[i]){
-        if (!banMap[key] && !peerMap[i][key].assignedBlock && peerMap[i][key].isConnected && peerMap[i][key].hasHandshake() && !peerMap[i][key].choking){
+        if (!peerMap[i][key].assignedBlock && peerMap[i][key].isConnected && peerMap[i][key].hasHandshake() && !peerMap[i][key].choking){
           storage[i].assignBlock(peerMap[i][key], this.isEndGame());
           break;
         }

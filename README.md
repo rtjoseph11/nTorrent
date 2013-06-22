@@ -33,7 +33,6 @@ the files will be downloaded to the /downloads directory which is in the same di
 
 next step
 
-endgame block requests to multiple peers
 
 ============
 

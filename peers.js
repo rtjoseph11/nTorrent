@@ -8,11 +8,9 @@ module.exports.prototype.add = function(peer, buffer){
   inStorage[buffer.toString('hex')] = true;
   storage[peer.id] = peer;
   storageLength += 1;
-  peer.connect();
-};
-
-module.exports.prototype.get = function(id){
-  return storage[peer.id];
+  if (!peer.isConnected){
+    peer.connect();
+  }
 };
 
 module.exports.prototype.length = function(){
