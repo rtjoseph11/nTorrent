@@ -96,7 +96,6 @@ module.exports.prototype.validate = function(){
     console.log('succesfully received piece ', this.index);
     this.completed = true;
     this.writeToDisk();
-    this.emit('pieceFinished', this);
   } else {
     this.blockMap = {};
     this.blockPeers = {};
@@ -109,13 +108,18 @@ module.exports.prototype.validate = function(){
 };
 
 module.exports.prototype.writeToDisk = function(){
+  var self = this;
   var used = 0;
-    for (var i = 0; i < this.files.length; i++){
-      var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start, flags: 'r+'});
-      pieceWriter.end(this.data.slice(used, used + this.files[i].writeLength));
-      used += this.files[i].writeLength;
+    for (var i = 0; i < self.files.length; i++){
+      var pieceWriter = fs.createWriteStream(self.files[i].path, {start: self.files[i].start, flags: 'r+'});
+      pieceWriter.end(self.data.slice(used, used + self.files[i].writeLength), function(){
+        if (i === self.files.length){
+          self.emit('pieceFinished', self);
+        }
+      });
+      used += self.files[i].writeLength;
     }
-  delete this.data;
+  delete self.data;
 };
 
 module.exports.prototype.readFromDisk = function(){
