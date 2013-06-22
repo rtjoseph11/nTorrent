@@ -33,6 +33,7 @@ the files will be downloaded to the /downloads directory which is in the same di
 
 next step
 
+when reading from disk for sending blocks, do so asynchronously
 
 ============
 
@@ -40,11 +41,7 @@ long term features
 
 write tests
 
-remove pieces from memory once they are completed, read from fs when requested
-
 implement retrieving pieces by scarcity
-
-connect to multiple trackers
 
 implement udp tracker requests
 
