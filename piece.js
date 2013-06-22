@@ -64,17 +64,16 @@ module.exports.prototype.assignBlock = function(peer, isEndGame){
 };
 
 module.exports.prototype.getBlock = function(begin, length){
-  var filepath = "";
+  var data = new Buffer(length);
+  var used = 0;
   for (var i = 0; i < this.files.length; i++){
     if (this.index * this.standardLength + begin >= this.files[i].start && this.index * this.standardLength + begin < this.files[i].start + this.files[i].writeLength){
-      filepath = this.files[i].path;
-      break;
+      var fd = fs.openSync(this.files[i].path, 'r');
+      fs.readSync(fd, data, used, Math.min(this.files[i].writeLength, length - used), this.index * this.standardLength + begin);
+      used += Math.min(this.files[i].writeLength, length - used);
+      fs.closeSync(fd);
     }
   }
-  var fd = fs.openSync(filepath, 'r');
-  var data = new Buffer(length);
-  fs.readSync(fd, data, 0, length, this.index * this.standardLength + begin);
-  fs.closeSync(fd);
   return {
     index: this.index,
     begin: begin,

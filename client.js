@@ -57,10 +57,11 @@ var peerBindings = function(peer){
   peer.on('hasPiece', pieceField.registerPeerPiece);
   peer.on('disconnect', pieceField.unregisterPeer);
   peer.on('blockRequest', pieceField.sendBlock);
-  peer.on('blockTimeout', pieceField.banPeer);
+  // peer.on('blockTimeout', pieceField.banPeer);
   peer.on('blockComplete', pieceField.writeBlock);
 };
 
+var start = new Date();
 //sandbox mode is for testing against the local computer
 if (process.argv[process.argv.length - 2] === 'sandbox'){
   var buf = new Buffer(6);
@@ -76,18 +77,18 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
   peers.add(sandboxPeer, buf);
 } else {
   //what actually gets used when not in sandbox mode
-  var uri;
+  var uris = [];
   if(torrent.announce.toString('binary').substring(0,4) === 'http'){
-    uri = torrent.announce.toString('binary') + '?';
-  } else if (torrent['announce-list']){
+    uris.push(torrent.announce.toString('binary') + '?');
+  }
+  if (torrent['announce-list']){
     for (var x = 0; x < torrent['announce-list'].length; x++){
       if (torrent['announce-list'][x][0].toString('binary').substring(0,4) === 'http'){
-        uri = torrent['announce-list'][x][0].toString('binary') + '?';
-        break;
+        uris.push(torrent['announce-list'][x][0].toString('binary') + '?');
       }
     }
   }
-  if (! uri){
+  if (uris.length === 0){
     throw new Error("no http trackers");
   }
   var query = {
@@ -100,22 +101,22 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
       compact: 1,
       numwant: 1000
   };
-
-  for (var key in query){
-    uri += key + "=" + query[key] + "&";
+  for (var i = 0; i < uris.length; i++){
+    for (var key in query){
+      uris[i] += key + "=" + query[key] + "&";
+    }
   }
-  var trackerRequest = function(){
+  var trackerRequest = function(uri){
     request({
       uri: uri,
       encoding: null
     }, function(error, response, body){
-      console.log('requested peers from ', uri);
       if (!error){
         var bodyObj = bencode.decode(body);
-        if (!bodyObj['failure reason']){
+        if (!bodyObj['failure reason'] && bodyObj['peers']){
           if (!torrentFinished && peers.length() < 500){
             console.log('requesting peers in 60 seoncds');
-            setTimeout(trackerRequest, 60000);
+            setTimeout(function(){trackerRequest(uri);}, 60000);
           }
           for (var i = 0; i < bodyObj.peers.length; i += 6){
             if (! peers.hasPeer(bodyObj.peers.slice(i, i + 6))){
@@ -124,8 +125,10 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
               peers.add(peer, bodyObj.peers.slice(i, i + 6));
             }
           }
-        } else {
+        } else if (bodyObj['failure reason']){
           console.log(bodyObj['failure reason'].toString());
+        } else {
+          console.log('did not get a valid tracker response');
         }
       }
       else {
@@ -135,7 +138,10 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
     });
   };
   if(!torrentFinished){
-    trackerRequest();
+    for (var i = 0; i < uris.length; i++){
+      console.log('requesting peers from ', uris[i]);
+      trackerRequest(uris[i]);
+    }
   }
 }
 
@@ -156,6 +162,13 @@ var client = net.createServer(function(c){
 client.listen(port, function(){
   console.log('client bound to port ', port);
 });
-if (process.argv[3] !== 'seed'){
-  pieceField.on('torrentFinished', process.exit);
+if (process.argv[4] !== 'seed'){
+  pieceField.on('torrentFinished', function(){
+    console.log('torrent took ', ((new Date()) - start) / 60000 , ' minutes to download!');
+    process.exit();
+  });
+} else {
+  pieceField.on('torrentFinished', function(){
+    console.log('torrent took ', ((new Date()) - start) / 60000 , ' minutes to download!');
+  });
 }
