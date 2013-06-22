@@ -8,6 +8,7 @@ module.exports = function(sha, length, index, files, standardLength){
   this.data = new Buffer(length);
   this.index = index;
   this.files = files;
+  this.length = length;
   this.standardLength = standardLength;
   this.completed = false;
   this.blockMap = {};
@@ -45,20 +46,22 @@ module.exports.prototype.writeBlock = function(block, peer){
 };
 
 module.exports.prototype.assignBlock = function(peer, isEndGame){
-  for (var begin in this.blockMap){
-    if (!this.blockPeers[begin] || isEndGame){
-      this.blockPeers[begin] = peer.id;
-      peer.assignedBlock = {
-        index: this.index,
-        begin: Number(begin),
-        length: Math.min(16384, this.data.length - Number(begin))
-      };
-      peer.getBlock({
-        index: this.index,
-        begin: Number(begin),
-        length: Math.min(16384, this.data.length - Number(begin))
-      });
-      break;
+  if (!peer.assignedBlock && !this.completed && this.data){
+    for (var begin in this.blockMap){
+      if (!this.blockPeers[begin] || isEndGame){
+        this.blockPeers[begin] = peer.id;
+        peer.assignedBlock = {
+          index: this.index,
+          begin: Number(begin),
+          length: Math.min(16384, this.data.length - Number(begin))
+        };
+        peer.getBlock({
+          index: this.index,
+          begin: Number(begin),
+          length: Math.min(16384, this.data.length - Number(begin))
+        });
+        break;
+      }
     }
   }
 };
@@ -66,10 +69,17 @@ module.exports.prototype.assignBlock = function(peer, isEndGame){
 module.exports.prototype.getBlock = function(begin, length){
   var data = new Buffer(length);
   var used = 0;
+  var fd;
+  var pieceStart = this.index * this.standardLength;
   for (var i = 0; i < this.files.length; i++){
-    if (this.index * this.standardLength + begin >= this.files[i].start && this.index * this.standardLength + begin < this.files[i].start + this.files[i].writeLength){
-      var fd = fs.openSync(this.files[i].path, 'r');
-      fs.readSync(fd, data, used, Math.min(this.files[i].writeLength, length - used), this.index * this.standardLength + begin);
+    if (i === 0 && pieceStart + begin < this.files[i].start + this.files[i].writeLength && pieceStart + begin + length > this.files[i].start){
+      fd = fs.openSync(this.files[i].path, 'r');
+      fs.readSync(fd, data, 0, Math.min(this.files[i].writeLength - begin, length), this.files[i].start + begin);
+      used += Math.min(this.files[i].writeLength - begin, length);
+      fs.closeSync(fd);
+    } else if (length - used > 0){
+      fd = fs.openSync(this.files[i].path, 'r');
+      fs.readSync(fd, data, used, Math.min(this.files[i].writeLength, length - used), 0);
       used += Math.min(this.files[i].writeLength, length - used);
       fs.closeSync(fd);
     }
@@ -84,9 +94,8 @@ module.exports.prototype.getBlock = function(begin, length){
 module.exports.prototype.validate = function(){
   if (crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
     console.log('succesfully received piece ', this.index);
-    this.writeToDisk();
     this.completed = true;
-    delete this.data;
+    this.writeToDisk();
     this.emit('pieceFinished', this);
   } else {
     this.blockMap = {};

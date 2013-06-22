@@ -84,7 +84,9 @@ module.exports = function(torrentInfo){
       if (self.isEndGame()){
         self.emit('cancelBlock', block);
       }
-      p.assignBlock(peer, self.isEndGame());
+      if (!p.completed && !peer.assignedBlock && p.data){
+        p.assignBlock(peer, self.isEndGame());
+      }
     });
 
     piece.on('writeFailed', function(){
@@ -94,7 +96,7 @@ module.exports = function(torrentInfo){
     storage[i / 20] = piece;
     bitMap[i / 20] = 0;
     peerMap[ i / 20] = {};
-
+    //use a file to indicate what pieces are already downloaded rather than reading from disk
     piece.readFromDisk();
   }
   console.log('bitfield created, storage has length', storage.length);
@@ -155,10 +157,6 @@ module.exports.prototype.registerPeerPiece = function(peer, index){
   }
 };
 
-// module.exports.prototype.banPeer = function(peer){
-//   banMap[peer.id] = true;
-// };
-
 module.exports.prototype.isFinished = function(){
   if (bitMap.reduce(function(memo, item){
         return memo += item;
@@ -183,7 +181,6 @@ module.exports.prototype.writeBlock = function(block, peer){
 };
 
 module.exports.prototype.checkForPiece = function(){
-  //there is a bug with this when it enters endGameMode with only 1 peer
   for (var i = 0; i < storage.length; i++){
     if (! bitMap[i]){
       for (var key in peerMap[i]){

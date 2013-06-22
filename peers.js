@@ -1,6 +1,7 @@
 var storage = {};
 var inStorage = {};
 var storageLength = 0;
+var numConnected = 0;
 module.exports = function(){
 };
 
@@ -10,7 +11,21 @@ module.exports.prototype.add = function(peer, buffer){
   storageLength += 1;
   if (!peer.isConnected){
     peer.connect();
+  } else {
+    numConnected++;
   }
+};
+
+module.exports.prototype.decrementConnected = function(){
+  numConnected--;
+};
+
+module.exports.prototype.incrementConnected = function(){
+  numConnected++;
+};
+
+module.exports.prototype.numConnected = function(){
+  return numConnected;
 };
 
 module.exports.prototype.length = function(){

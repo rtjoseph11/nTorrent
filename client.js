@@ -1,5 +1,6 @@
-var bencode = require('bencode');
-var fs = require('fs');
+//use commas when creating variables at the beginning
+var bencode = require('bencode'),
+    fs = require('fs');
 var crypto = require('crypto');
 var url = require('url');
 var request = require('request');
@@ -14,6 +15,7 @@ if (! process.argv[3] || isNaN(process.argv[3]) || !process.argv[4]){
   throw new Error('need to provide a port to listen on and indicate seed status');
 }
 var port = process.argv[3];
+//create a utils.js
 var queryStringNumber = function(number){
   var result = [];
   for (var i = 0; i < number.toString().length; i++){
@@ -30,6 +32,7 @@ var clientID = '-NT0000-' + Date.now().toString().substring(1);
 var checkForPiece = function(){
   pieceField.checkForPiece();
 };
+//pass pieceField into the peer file and do the peer bindings function in there
 var Peer = require('./peer')(infoHash, clientID, messages, pieceField.length());
 var peers = new Peers();
 var reconnect = setInterval(peers.connect, 60000);
@@ -56,13 +59,14 @@ var peerBindings = function(peer){
   peer.on('blockRelease', pieceField.releaseBlock);
   peer.on('hasPiece', pieceField.registerPeerPiece);
   peer.on('disconnect', pieceField.unregisterPeer);
+  peer.on('disconnect', peers.decrementConnected);
+  peer.on('connected', peers.incrementConnected);
   peer.on('blockRequest', pieceField.sendBlock);
-  // peer.on('blockTimeout', pieceField.banPeer);
   peer.on('blockComplete', pieceField.writeBlock);
 };
 
 var start = new Date();
-//sandbox mode is for testing against the local computer
+//move sandbox mode into the testing file
 if (process.argv[process.argv.length - 2] === 'sandbox'){
   var buf = new Buffer(6);
   //these 4 numbers are this computers ip address
@@ -106,6 +110,8 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
       uris[i] += key + "=" + query[key] + "&";
     }
   }
+  //use a config file for constants like sha1 piece length and ip address buffers;
+  //use a config file for console logs
   var trackerRequest = function(uri){
     request({
       uri: uri,
@@ -114,7 +120,7 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
       if (!error){
         var bodyObj = bencode.decode(body);
         if (!bodyObj['failure reason'] && bodyObj['peers']){
-          if (!torrentFinished && peers.length() < 500){
+          if (!torrentFinished && peers.numConnected() < 500){
             console.log('requesting peers in 60 seoncds');
             setTimeout(function(){trackerRequest(uri);}, 60000);
           }

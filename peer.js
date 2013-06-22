@@ -47,6 +47,7 @@ Peer.prototype.connect = function(){
   self.connection.on('connect', function(){
     self.isConnected = true;
     self.sendHandshake();
+    self.emit('connected');
   });
 };
 
