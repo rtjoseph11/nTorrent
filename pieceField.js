@@ -183,6 +183,7 @@ module.exports.prototype.writeBlock = function(block, peer){
 };
 
 module.exports.prototype.checkForPiece = function(){
+  //there is a bug with this when it enters endGameMode with only 1 peer
   for (var i = 0; i < storage.length; i++){
     if (! bitMap[i]){
       for (var key in peerMap[i]){
