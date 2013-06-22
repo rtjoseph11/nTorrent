@@ -12,7 +12,7 @@ module.exports = function(sha, length, index, files, standardLength){
   this.blockMap = {};
   this.blockPeers = {};
   for (var i = 0; i < length; i+= 16384){
-    this.blockMap[i] = 1;
+    this.blockMap[i] = 0;
   }
 };
 
@@ -35,15 +35,27 @@ module.exports.prototype.writeBlock = function(block, peer){
     if (remBlocks === 0){
         this.validate();
     } else if (!peer.assignedBlock) {
-      this.emit('blockWritten', this, peer, block);
+      this.emit('blockWritten', this, peer, {
+        index: block.index,
+        begin: block.begin,
+        length: block.data.length
+      });
     }
   }
 };
 
 module.exports.prototype.assignBlock = function(peer, isEndGame){
   for (var begin in this.blockMap){
-    if (! this.blockPeers[begin] || isEndGame){
+    if (!this.blockPeers[begin] || isEndGame){
       this.blockPeers[begin] = peer.id;
+      if (isEndGame){
+        console.log('assigned piece ', this.index, ', block ', begin, ' to peer ', peer.id);
+      }
+      peer.assignedBlock = {
+        index: this.index,
+        begin: Number(begin),
+        length: Math.min(16384, this.data.length - Number(begin))
+      };
       peer.getBlock({
         index: this.index,
         begin: Number(begin),

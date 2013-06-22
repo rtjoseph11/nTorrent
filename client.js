@@ -27,12 +27,13 @@ var PieceField = require('./pieceField');
 var pieceField = new PieceField(torrent.info);
 var messages = require('./messages');
 var clientID = '-NT0000-' + Date.now().toString().substring(1);
-
-
+var checkForPiece = function(){
+  pieceField.checkForPiece();
+};
 var Peer = require('./peer')(infoHash, clientID, messages, pieceField.length());
 var peers = new Peers();
 var reconnect = setInterval(peers.connect, 60000);
-pieceField.on('pieceFinished', pieceField.checkForPiece);
+pieceField.on('pieceFinished', checkForPiece);
 pieceField.on('pieceFinished', peers.broadcastPiece);
 pieceField.on('torrentFinished', peers.disconnect);
 pieceField.on('torrentFinished', function(){
@@ -42,6 +43,7 @@ pieceField.on('torrentFinished', function(){
 pieceField.on('cancelBlock', peers.cancelBlock);
 
 var torrentFinished = pieceField.isFinished();
+
 var peerBindings = function(peer){
   peer.on('bitField', pieceField.registerPeer);
   peer.on('receivedHandshake', function(p){
@@ -50,8 +52,7 @@ var peerBindings = function(peer){
       p.sendBitField(pieceField.bitField());
     }
   });
-  peer.on('available', pieceField.checkForPiece);
-  peer.on('floatingBlock', pieceField.checkForPiece);
+  peer.on('available', checkForPiece);
   peer.on('blockRelease', pieceField.releaseBlock);
   peer.on('hasPiece', pieceField.registerPeerPiece);
   peer.on('disconnect', pieceField.unregisterPeer);

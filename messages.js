@@ -84,6 +84,16 @@ exports.generateRequest = function(block){
   return result;
 };
 
+exports.generateCancel = function(block){
+  var result = new Buffer(17);
+  result.writeUInt32BE(13, 0);
+  result.writeUInt8(8, 4);
+  result.writeUInt32BE(block.index, 5);
+  result.writeUInt32BE(block.begin, 9);
+  result.writeUInt32BE(block.length, 13);
+  return result;
+};
+
 exports.generateBlock = function(block){
   var result = new Buffer(13 + block.data.length);
   result.writeUInt32BE(9 + block.data.length, 0);
@@ -113,16 +123,6 @@ exports.generateUnchoke = function(){
   var result = new Buffer(5);
   result.writeUInt32BE(1,0);
   result.writeUInt8(1, 4);
-  return result;
-};
-
-exports.generateCancel = function(block){
-  var result = new Buffer(17);
-  result.writeUInt32BE(12, 0);
-  result.writeUInt8(8, 4);
-  result.writeUInt32BE(block.index, 5);
-  result.writeUInt32BE(block.begin, 9);
-  result.writeUInt32BE(block.length, 13);
   return result;
 };
 

@@ -76,7 +76,6 @@ Peer.prototype.generateBitField = function(bitString){
 
 Peer.prototype.getBlock = function(block){
   var self = this;
-  self.assignedBlock = block;
   if (self.choking || ! self.isConnected || ! self.sentHandshake || ! self.receivedHandshake){
     self.releaseBlock();
   } else if (!self.pendingRequest){
@@ -102,8 +101,7 @@ Peer.prototype.releaseBlock = function(){
     this.emit('blockRelease', this.assignedBlock);
     this.assignedBlock = null;
   }
-  console.log('floating block');
-  this.emit('floatingBlock');
+  this.emit('available');
 };
 
 Peer.prototype.unchoke = function(){
@@ -150,6 +148,7 @@ Peer.prototype.sendHasPiece = function(index){
 
 Peer.prototype.sendCancelRequest = function(block){
   var self = this;
+  console.log('sending a cancel request to peer ', self.id);
   self.connection.write(messages.generateCancel(block), function(){
     self.assignedBlock = null;
     self.pendingRequest = false;

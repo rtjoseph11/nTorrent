@@ -84,7 +84,7 @@ module.exports = function(torrentInfo){
       if (self.isEndGame()){
         self.emit('cancelBlock', block);
       }
-      p.assignedBlock(peer, block, self.isEndGame());
+      p.assignBlock(peer, self.isEndGame());
     });
 
     piece.on('writeFailed', self.checkForPiece);
@@ -100,7 +100,7 @@ module.exports = function(torrentInfo){
 
 util.inherits(module.exports, events.EventEmitter);
 
-module.exports.prototype.length = function(index){
+module.exports.prototype.length = function(){
   return storage.length;
 };
 
@@ -148,7 +148,7 @@ module.exports.prototype.unregisterPeer = function(peer){
 
 module.exports.prototype.registerPeerPiece = function(peer, index){
   peerMap[index][peer.id] = peer;
-  if (!bitMap[i] && !peer.amInterested){
+  if (!bitMap[index] && !peer.amInterested){
     peer.sendInterested();
   }
 };
@@ -181,7 +181,6 @@ module.exports.prototype.writeBlock = function(block, peer){
 };
 
 module.exports.prototype.checkForPiece = function(){
-  console.log('checking for pieces');
   for (var i = 0; i < storage.length; i++){
     if (! bitMap[i]){
       for (var key in peerMap[i]){
