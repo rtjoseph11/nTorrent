@@ -1,7 +1,7 @@
-var storage = {};
-var inStorage = {};
-var storageLength = 0;
-var numConnected = 0;
+var storage = {},
+    inStorage = {},
+    storageLength = 0,
+    numConnected = 0;
 module.exports = function(){
 };
 

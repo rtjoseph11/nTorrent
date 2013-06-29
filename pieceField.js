@@ -1,14 +1,14 @@
-var events = require('events');
-var util = require('util');
-var fs = require('fs');
-var pieceLength;
-var Piece = require('./piece');
-var storage = [];
-var peerMap = [];
-var banMap = {};
-var bitMap = [];
-var files = [];
-var totalLength = 0;
+var events = require('events'),
+    util = require('util'),
+    fs = require('fs'),
+    pieceLength,
+    Piece = require('./piece'),
+    storage = [],
+    peerMap = [],
+    banMap = {},
+    bitMap = [],
+    files = [],
+    totalLength = 0;
 
 module.exports = function(torrentInfo){
   var self = this;

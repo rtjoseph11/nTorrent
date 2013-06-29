@@ -1,12 +1,13 @@
-var net = require('net');
-var events = require('events');
-var util = require('util');
-var MessageParser = require('./messageParser');
-var numPieces;
-var infoHash;
-var clientID;
-var messages;
-var id = 0;
+var net = require('net'),
+    events = require('events'),
+    util = require('util'),
+    MessageParser = require('./messageParser'),
+    numPieces,
+    infoHash,
+    clientID,
+    messages,
+    peers,
+    id = 0;
 
 var Peer = function(buffer, connection){
   events.EventEmitter.call(this);
@@ -200,9 +201,22 @@ Peer.prototype.writeBlock = function(block){
 
 Peer.prototype.eventBindings = function(){
   var self = this;
-
+  self.on('available', pieceField.checkForPiece.bind(pieceField));
+  self.on('blockRelease', pieceField.releaseBlock);
+  self.on('hasPiece', pieceField.registerPeerPiece);
+  self.on('disconnect', pieceField.unregisterPeer);
+  self.on('disconnect', peers.decrementConnected);
+  self.on('connected', peers.incrementConnected);
+  self.on('blockRequest', pieceField.sendBlock);
+  self.on('blockComplete', pieceField.writeBlock);
+  self.on('bitField', pieceField.registerPeer);
+  self.on('receivedHandshake', function(p){
+    if (!p.sentHandshake){
+      p.sendHandshake();
+      p.sendBitField(pieceField.bitField());
+    }
+  });
   var messageParser = new MessageParser(self, infoHash, messages);
-
   self.connection.on('data', function(chunk){
     messageParser.consume(chunk);
   });
@@ -210,7 +224,6 @@ Peer.prototype.eventBindings = function(){
     self.connectionError = true;
     console.log('peer ', self.id, ' Exception: ', exception);
   });
-
   self.connection.on('close', function(hadError){
     if (hadError){
       self.connectionError = true;
@@ -221,10 +234,12 @@ Peer.prototype.eventBindings = function(){
   });
 };
 
-module.exports = function(_infoHash, _clientID, _messages, _numPieces){
+module.exports = function(_infoHash, _clientID, _messages, _pieceField, _peers){
   infoHash = _infoHash;
   clientID = _clientID;
   messages = _messages;
-  numPieces = _numPieces;
+  numPieces = _pieceField.length();
+  pieceField = _pieceField;
+  peers = _peers;
   return Peer;
 };
