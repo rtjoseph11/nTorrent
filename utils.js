@@ -12,10 +12,6 @@ utils.HTTPTrackerRequest = function(uri, torrentFinished){
     if (!error){
       var bodyObj = bencode.decode(body);
       if (!bodyObj['failure reason'] && bodyObj['peers']){
-        if (!torrentFinished && peers.numConnected() < 500){
-          console.log('requesting peers in 60 seoncds');
-          setTimeout(function(){trackerRequest(uri);}, 60000);
-        }
         for (var i = 0; i < bodyObj.peers.length; i += 6){
           if (! peers.hasPeer(bodyObj.peers.slice(i, i + 6))){
             var peer = new Peer(bodyObj.peers.slice(i, i + 6));

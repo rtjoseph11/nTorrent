@@ -14,13 +14,13 @@ var bencode = require('bencode'),
     Peers = require('./peers'),
     net = require('net'),
     port = process.argv[3],
-    torrent = bencode.decode(new Buffer(fs.readFileSync(__dirname + '/' + process.argv[2]))),
+    torrent = bencode.decode(fs.readFileSync(__dirname + '/' + process.argv[2])),
     infoHash = crypto.createHash('sha1').update(bencode.encode(torrent.info)).digest(),
     PieceField = require('./pieceField'),
     pieceField = new PieceField(torrent.info),
     torrentFinished = pieceField.isFinished(),
     messages = require('./messages'),
-    clientID = '-NT0000-' + Date.now().toString().substring(1),
+    clientID = '-NT0000-' + Date.now().toString().substring(Date.now().toString().length - 12,Date.now().toString().length),
     peers = new Peers(),
     Peer = require('./peer')(infoHash, clientID, messages, pieceField, peers),
     reconnect = setInterval(peers.connect, 60000),
@@ -72,6 +72,12 @@ if (process.argv[process.argv.length - 2] === 'sandbox'){
     for (var i = 0; i < uris.length; i++){
       console.log('requesting peers from ', uris[i]);
       utils.HTTPTrackerRequest(uris[i], torrentFinished);
+      if (!torrentFinished && peers.numConnected() < 500){
+          console.log('requesting peers in 60 seoncds');
+          setTimeout(function(){
+            utils.HTTPTrackerRequest(uris[i], torrentFinished);
+          }, 600000);
+      }
     }
   }
 }
