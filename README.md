@@ -31,19 +31,15 @@ the files will be downloaded to the /downloads directory which is in the same di
 
 ============
 
-next step
-
-when reading from disk for sending blocks, do so asynchronously
-
-============
-
-long term features
+enhancements
 
 write tests
 
 implement retrieving pieces by scarcity
 
 implement udp tracker requests
+
+when reading from disk for sending blocks, do so asynchronously
 
 log stats at the end
 (number of peers downloaded from, number of each type of message sent and received)
