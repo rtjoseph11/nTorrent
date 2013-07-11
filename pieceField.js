@@ -10,46 +10,33 @@ var events = require('events'),
     Piece = require('./piece')(bitMap),
     totalLength = 0;
 
-var generateFilesMetaData = function(torrentFiles, downloadpath){
-  for (var j = 0; j < torrentFiles.length; j++){
-    if (!fs.existsSync(downloadpath + '/' + torrentFiles[j].path[0].toString())){
-      fs.writeFileSync(downloadpath + '/' + torrentFiles[j].path[0].toString(), new Buffer(0));
-    }
-    files.push({
-      path: downloadpath + '/' + torrentFiles[j].path[0].toString(),
-      length: torrentFiles[j].length,
-      startPosition: totalLength,
-      used: 0
-    });
-    totalLength += torrentFiles[j].length;
-  }
-};
-
-var generateFileMetaData = function(file, length, downloadpath){
-  if (! fs.existsSync(downloadpath + '/' + file.toString())){
-    fs.writeFileSync(downloadpath + '/' + file.toString(), new Buffer(0));
+var generateFileMetaData = function(torrentFile, path, length){
+  length = length || torrentFile.length;
+  if (!fs.existsSync(path)){
+    fs.writeFileSync(path, new Buffer(0));
   }
   files.push({
-    path: downloadpath + '/' + file.toString(),
+    path: path,
     length: length,
     startPosition: totalLength,
     used: 0
   });
-  totalLength += length;
+  totalLength += torrentFile.length;
 };
 
 module.exports = function(torrentInfo){
-  var self = this;
-  events.EventEmitter.call(self);
+  events.EventEmitter.call(this);
   pieceLength = torrentInfo['piece length'];
   var downloadpath = __dirname + '/downloads/' + torrentInfo.name.toString();
   if (! fs.existsSync(downloadpath)){
     fs.mkdirSync(downloadpath);
   }
   if (torrentInfo.files){
-    generateFilesMetaData(torrentInfo.files, downloadpath);
+    for (var j = 0; j < torrentInfo.files.length; j++){
+      generateFileMetaData(torrentInfo.files[j], downloadpath + '/' + torrentInfo.files[j].path[0].toString());
+    }
   } else {
-    generateFileMetaData(torrentInfo.name, torrentInfo.length, downloadpath);
+    generateFileMetaData(torrentInfo.name, downloadpath,torrentInfo.length);
   }
   for (var i = 0; i < torrentInfo.pieces.length; i += 20){
     //ternary is for the last piece which will probably be shorter than the rest of the pieces
@@ -70,7 +57,7 @@ module.exports = function(torrentInfo){
       }
     }
 
-    var piece = new Piece(torrentInfo.pieces.slice(i, i + 20),  curPieceLength, i / 20, pieceFiles, pieceLength, self);
+    var piece = new Piece(torrentInfo.pieces.slice(i, i + 20),  curPieceLength, i / 20, pieceFiles, pieceLength, this);
 
     storage[i / 20] = piece;
     bitMap[i / 20] = 0;
