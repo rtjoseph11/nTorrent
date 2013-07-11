@@ -1,6 +1,7 @@
 var events = require('events'),
     util = require('util'),
     fs = require('fs'),
+    config = require('./config'),
     peers,
     pieceLength,
     storage = [],
@@ -28,7 +29,10 @@ var generateFileMetaData = function(torrentFile, path, length){
 var PieceField = function(torrentInfo){
   events.EventEmitter.call(this);
   pieceLength = torrentInfo['piece length'];
-  var downloadpath = __dirname + '/downloads/' + torrentInfo.name.toString();
+  if (! fs.existsSync(config.downloadpath)){
+    throw new Error("specified download folder doesn't exist");
+  }
+  var downloadpath = config.downloadpath + torrentInfo.name.toString();
   if (! fs.existsSync(downloadpath)){
     fs.mkdirSync(downloadpath);
   }

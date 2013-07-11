@@ -2,6 +2,7 @@ var crypto = require('crypto');
 var events = require('events');
 var util = require('util');
 var fs = require('fs');
+var config = require('./config');
 var bitMap;
 var pieceExists = function(piece){
   bitMap[piece.index] = 1;
@@ -37,7 +38,7 @@ Piece = function(sha, length, index, files, standardLength, pieceField){
   this.completed = false;
   this.blockMap = {};
   this.blockPeers = {};
-  for (var i = 0; i < length; i+= 16384){
+  for (var i = 0; i < length; i+= config.blockLength){
     this.blockMap[i] = 0;
   }
   this.on('pieceExists', pieceExists);
@@ -81,12 +82,12 @@ Piece.prototype.assignBlock = function(peer, isEndGame){
         peer.assignedBlock = {
           index: this.index,
           begin: Number(begin),
-          length: Math.min(16384, this.data.length - Number(begin))
+          length: Math.min(config.blockLength, this.data.length - Number(begin))
         };
         peer.getBlock({
           index: this.index,
           begin: Number(begin),
-          length: Math.min(16384, this.data.length - Number(begin))
+          length: Math.min(config.blockLength, this.data.length - Number(begin))
         });
         break;
       }
@@ -102,7 +103,7 @@ Piece.prototype.validate = function(){
   } else {
     this.blockMap = {};
     this.blockPeers = {};
-    for (var i = 0; i < this.data.length; i+= 16384){
+    for (var i = 0; i < this.data.length; i+= config.blockLength){
       this.blockMap[i] = 0;
     }
     console.log('failed to download piece ', this.index);
@@ -143,7 +144,7 @@ Piece.prototype.readFromDisk = function(){
   } else {
     this.blockMap = {};
     this.blockPeers = {};
-    for (var j = 0; j < this.data.length; j+= 16384){
+    for (var j = 0; j < this.data.length; j+= config.blockLength){
       this.blockMap[j] = 0;
     }
   }

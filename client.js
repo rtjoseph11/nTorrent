@@ -5,15 +5,12 @@ if (! fs.existsSync(__dirname + '/' + process.argv[2])){
   throw new Error('torrent file ' + process.argv[2] + " doesn't exist!");
 }
 
-if (! process.argv[3] || isNaN(process.argv[3]) || !process.argv[4]){
-  throw new Error('need to provide a port to listen on and indicate seed status');
-}
-
 var bencode = require('bencode'),
     crypto = require('crypto'),
     Peers = require('./peers'),
     net = require('net'),
-    port = process.argv[3],
+    config = require('./config');
+    port = config.port,
     torrent = bencode.decode(fs.readFileSync(__dirname + '/' + process.argv[2])),
     infoHash = crypto.createHash('sha1').update(bencode.encode(torrent.info)).digest(),
     peers = new Peers(),
@@ -69,7 +66,7 @@ pieceField.on('torrentFinished', function(){
 
 pieceField.on('torrentFinished', function(){
   console.log('torrent took ', ((new Date()) - start) / 60000 , ' minutes to download!');
-  if(process.argv[4] !== 'seed'){
+  if(!config.seed){
     process.exit();
   }
 });

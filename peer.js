@@ -1,6 +1,7 @@
 var net = require('net'),
     events = require('events'),
     util = require('util'),
+    config = require('./config'),
     numPieces,
     infoHash,
     clientID,
@@ -266,7 +267,7 @@ Peer.prototype.consumeReadable = function(){
 };
 
 Peer.prototype.readHandshake = function(){
-  var message = this.connection.read(68);
+  var message = this.connection.read(config.handShakeLength);
   if (message){
     messages.consumeHandshake(message, infoHash, this);
     this.messageLengthBuffer = this.connection.read(4);
