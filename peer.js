@@ -195,15 +195,8 @@ Peer.prototype.writeBlock = function(block){
 };
 
 var handleReadable = function(){
-  var message;
-  var messageLength;
   if (!this.receivedHandshake){
-    message = this.connection.read(68);
-    if (message){
-      messages.consumeHandshake(message, infoHash, this);
-      this.messageLengthBuffer = this.connection.read(4);
-      this.consumeReadable();
-    }
+    this.readHandshake();
   } else {
     if (!this.messageLengthBuffer){
       this.messageLengthBuffer = this.connection.read(4);
@@ -269,6 +262,15 @@ Peer.prototype.consumeReadable = function(){
     } else {
       break;
     }
+  }
+};
+
+Peer.prototype.readHandshake = function(){
+  var message = this.connection.read(68);
+  if (message){
+    messages.consumeHandshake(message, infoHash, this);
+    this.messageLengthBuffer = this.connection.read(4);
+    this.consumeReadable();
   }
 };
 
