@@ -1,6 +1,7 @@
 var events = require('events'),
     util = require('util'),
     fs = require('fs'),
+    peers,
     pieceLength,
     storage = [],
     peerMap = [],
@@ -24,7 +25,7 @@ var generateFileMetaData = function(torrentFile, path, length){
   totalLength += torrentFile.length;
 };
 
-module.exports = function(torrentInfo){
+var PieceField = function(torrentInfo){
   events.EventEmitter.call(this);
   pieceLength = torrentInfo['piece length'];
   var downloadpath = __dirname + '/downloads/' + torrentInfo.name.toString();
@@ -65,39 +66,43 @@ module.exports = function(torrentInfo){
     //use a file to indicate what pieces are already downloaded rather than reading from disk
     piece.readFromDisk();
   }
+  this.on('cancelBlock', peers.cancelBlock);
+  this.on('pieceFinished', this.checkForPiece.bind(this));
+  this.on('pieceFinished', peers.broadcastPiece);
+  this.on('torrentFinished', peers.disconnect);
   console.log('bitfield created, storage has length', storage.length);
 };
 
-util.inherits(module.exports, events.EventEmitter);
+util.inherits(PieceField, events.EventEmitter);
 
-module.exports.prototype.length = function(){
+PieceField.prototype.length = function(){
   return storage.length;
 };
 
-module.exports.prototype.left = function(){
+PieceField.prototype.left = function(){
   //hardcoding to the total length of the torrent
   return totalLength;
 };
 
-module.exports.prototype.downloaded = function(){
+PieceField.prototype.downloaded = function(){
   //hardocded to 0
   return 0;
 };
 
-module.exports.prototype.uploaded = function(){
+PieceField.prototype.uploaded = function(){
   //hardocded to 0
   return 0;
 };
 
-module.exports.prototype.bitField = function(){
+PieceField.prototype.bitField = function(){
   return bitMap;
 };
 
-module.exports.prototype.isEndGame = function(){
+PieceField.prototype.isEndGame = function(){
   return (storage.length - bitMap.reduce(function(memo, item){return memo += item;}, 0)) / storage.length < 0.01 ? true : false;
 };
 
-module.exports.prototype.registerPeer = function(peer){
+PieceField.prototype.registerPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
     if (peer.bitField[i]){
       peerMap[i][peer.id] = peer;
@@ -108,7 +113,7 @@ module.exports.prototype.registerPeer = function(peer){
   }
 };
 
-module.exports.prototype.unregisterPeer = function(peer){
+PieceField.prototype.unregisterPeer = function(peer){
   for (var i = 0; i < peer.bitField.length; i++){
     if (peer.bitField[i] && peerMap[i]){
       delete peerMap[i][peer.id];
@@ -116,14 +121,14 @@ module.exports.prototype.unregisterPeer = function(peer){
   }
 };
 
-module.exports.prototype.registerPeerPiece = function(peer, index){
+PieceField.prototype.registerPeerPiece = function(peer, index){
   peerMap[index][peer.id] = peer;
   if (!bitMap[index] && !peer.amInterested){
     peer.sendInterested();
   }
 };
 
-module.exports.prototype.isFinished = function(){
+PieceField.prototype.isFinished = function(){
   if (bitMap.reduce(function(memo, item){
         return memo += item;
       }, 0) === bitMap.length){
@@ -134,19 +139,19 @@ module.exports.prototype.isFinished = function(){
   }
 };
 
-module.exports.prototype.releaseBlock = function(block){
+PieceField.prototype.releaseBlock = function(block){
   delete storage[block.index].blockPeers[block.begin];
 };
 
-module.exports.prototype.sendBlock = function(request, peer){
+PieceField.prototype.sendBlock = function(request, peer){
   peer.sendBlock(storage[request.index].getBlock(request.begin, request.length));
 };
 
-module.exports.prototype.writeBlock = function(block, peer){
+PieceField.prototype.writeBlock = function(block, peer){
   storage[block.index].writeBlock(block, peer);
 };
 
-module.exports.prototype.checkForPiece = function(){
+PieceField.prototype.checkForPiece = function(){
   for (var i = 0; i < storage.length; i++){
     if (! bitMap[i]){
       for (var key in peerMap[i]){
@@ -157,4 +162,9 @@ module.exports.prototype.checkForPiece = function(){
       }
     }
   }
+};
+
+module.exports = function(_peers){
+  peers = _peers;
+  return PieceField;
 };

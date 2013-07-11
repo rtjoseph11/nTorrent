@@ -14,26 +14,17 @@ var bencode = require('bencode'),
     port = process.argv[2],
     torrent = bencode.decode(fs.readFileSync(__dirname + '/testdata/test.torrent')),
     infoHash = crypto.createHash('sha1').update(bencode.encode(torrent.info)).digest(),
-    PieceField = require('./pieceField'),
+    peers = new Peers(),
+    PieceField = require('./pieceField')(peers),
     pieceField = new PieceField(torrent.info),
     torrentFinished = pieceField.isFinished(),
     messages = require('./messages'),
     clientID = '-NT0000-' + Date.now().toString().substring(Date.now().toString().length - 12,Date.now().toString().length),
-    peers = new Peers(),
     Peer = require('./peer')(infoHash, clientID, messages, pieceField, peers),
     reconnect = setInterval(peers.connect, 60000),
     start = new Date(),
     utils = require('./utils')(Peer, bencode, peers),
     uris = utils.getHTTPTrackers(torrent, pieceField, infoHash, port, clientID);
-
-pieceField.on('cancelBlock', peers.cancelBlock);
-pieceField.on('pieceFinished', pieceField.checkForPiece.bind(pieceField));
-pieceField.on('pieceFinished', peers.broadcastPiece);
-pieceField.on('torrentFinished', peers.disconnect);
-pieceField.on('torrentFinished', function(){
-  torrentFinished = true;
-  clearInterval(reconnect);
-});
 
 //this handles unsolicted peers
 var client = net.createServer(function(c){
@@ -61,6 +52,11 @@ buf.writeUInt8(10, 3);
 buf.writeUInt16BE(process.argv[process.argv.length - 1], 4);
 var sandboxPeer = new Peer(buf);
 peers.add(sandboxPeer, buf);
+
+pieceField.on('torrentFinished', function(){
+  torrentFinished = true;
+  clearInterval(reconnect);
+});
 
 pieceField.on('torrentFinished', function(){
   console.log('torrent took ', ((new Date()) - start) / 60000 , ' minutes to download!');
