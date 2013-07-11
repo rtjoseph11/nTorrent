@@ -1,5 +1,5 @@
 var fs = require('fs');
-if (! fs.existsSync(__dirname + '/testdata/test.torrent')){
+if (! fs.existsSync(__dirname + '/test.torrent')){
   throw new Error("torrent file doesn't exist!");
 }
 
