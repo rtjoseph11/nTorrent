@@ -59,13 +59,12 @@ client.listen(port, function(){
 if (process.argv[process.argv.length - 2] === 'sandbox'){
   var buf = new Buffer(6);
   //these 4 numbers are this computers ip address
-  buf.writeUInt8(10, 0);
-  buf.writeUInt8(0, 1);
+  buf.writeUInt8(192, 0);
+  buf.writeUInt8(168, 1);
   buf.writeUInt8(1, 2);
-  buf.writeUInt8(240, 3);
+  buf.writeUInt8(10, 3);
   buf.writeUInt16BE(process.argv[process.argv.length - 1], 4);
   var sandboxPeer = new Peer(buf);
-  peerBindings(sandboxPeer);
   peers.add(sandboxPeer, buf);
 } else {
   if(!torrentFinished){

@@ -1,7 +1,6 @@
 var net = require('net'),
     events = require('events'),
     util = require('util'),
-    MessageParser = require('./messageParser'),
     numPieces,
     infoHash,
     clientID,
@@ -34,22 +33,18 @@ util.inherits(Peer, events.EventEmitter);
 
 Peer.prototype.connect = function(){
   var self = this;
+
   if (! self.connectionError){
     self.connectionError = false;
   }
+
   if (! self.connection){
     self.connection = new net.Socket();
-    self.connection.connect(self.port, self.ip);
   }
 
   self.connection.removeAllListeners();
   self.eventBindings();
-
-  self.connection.on('connect', function(){
-    self.isConnected = true;
-    self.sendHandshake();
-    self.emit('connected');
-  });
+  self.connection.connect(self.port, self.ip);
 };
 
 Peer.prototype.disconnect = function(){
@@ -199,39 +194,82 @@ Peer.prototype.writeBlock = function(block){
   this.emit('blockComplete', block, this);
 };
 
+var handleReadable = function(){
+  var message;
+  var messageLength;
+  if (!this.receivedHandshake){
+    message = this.connection.read(68);
+    if (message){
+      messages.consumeHandshake(message, infoHash, this);
+      this.messageLengthBuffer = this.connection.read(4);
+      this.consumeReadable();
+    }
+  } else {
+    if (!this.messageLengthBuffer){
+      this.messageLengthBuffer = this.connection.read(4);
+    }
+    this.consumeReadable();
+  }
+};
+
+var handleConnection = function(){
+  this.isConnected = true;
+  this.sendHandshake();
+  this.emit('connected');
+};
+
+var handleClose = function(hadError){
+  if (hadError){
+    this.connectionError = true;
+  } else {
+    console.log('peer ', this.id, ' connection closed!');
+  }
+  this.disconnect();
+};
+
+var handleError = function(exception){
+  this.connectionError = true;
+  console.log('peer ', this.id, ' Exception: ', exception);
+};
+
+var handleHandshake = function(){
+  if (!this.sentHandshake){
+    this.sendHandshake();
+    this.sendBitField(pieceField.bitField());
+  }
+};
+
 Peer.prototype.eventBindings = function(){
-  var self = this;
-  self.on('available', pieceField.checkForPiece.bind(pieceField));
-  self.on('blockRelease', pieceField.releaseBlock);
-  self.on('hasPiece', pieceField.registerPeerPiece);
-  self.on('disconnect', pieceField.unregisterPeer);
-  self.on('disconnect', peers.decrementConnected);
-  self.on('connected', peers.incrementConnected);
-  self.on('blockRequest', pieceField.sendBlock);
-  self.on('blockComplete', pieceField.writeBlock);
-  self.on('bitField', pieceField.registerPeer);
-  self.on('receivedHandshake', function(p){
-    if (!p.sentHandshake){
-      p.sendHandshake();
-      p.sendBitField(pieceField.bitField());
-    }
-  });
-  var messageParser = new MessageParser(self, infoHash, messages);
-  self.connection.on('data', function(chunk){
-    messageParser.consume(chunk);
-  });
-  self.connection.on('error', function(exception){
-    self.connectionError = true;
-    console.log('peer ', self.id, ' Exception: ', exception);
-  });
-  self.connection.on('close', function(hadError){
-    if (hadError){
-      self.connectionError = true;
+  this.on('available', pieceField.checkForPiece.bind(pieceField));
+  this.on('blockRelease', pieceField.releaseBlock);
+  this.on('hasPiece', pieceField.registerPeerPiece);
+  this.on('disconnect', pieceField.unregisterPeer);
+  this.on('disconnect', peers.decrementConnected);
+  this.on('connected', peers.incrementConnected);
+  this.on('blockRequest', pieceField.sendBlock);
+  this.on('blockComplete', pieceField.writeBlock);
+  this.on('bitField', pieceField.registerPeer);
+  this.on('receivedHandshake', handleHandshake.bind(this));
+  this.connection.on('readable', handleReadable.bind(this));
+  this.connection.on('error', handleError.bind(this));
+  this.connection.on('close', handleClose.bind(this));
+  this.connection.on('connect', handleConnection.bind(this));
+};
+
+Peer.prototype.consumeReadable = function(){
+  var message;
+  var messageLength;
+  while (this.messageLengthBuffer){
+    messageLength = this.messageLengthBuffer.readUInt32BE(0);
+    message = messageLength !== 0 ? this.connection.read(messageLength) : new Buffer(0);
+    if(message){
+      messages.consumeMessage({data: message}, this);
+      message = undefined;
+      this.messageLengthBuffer = this.connection.read(4);
     } else {
-      console.log('peer ', self.id, ' connection closed!');
+      break;
     }
-    self.disconnect();
-  });
+  }
 };
 
 module.exports = function(_infoHash, _clientID, _messages, _pieceField, _peers){

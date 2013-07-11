@@ -130,7 +130,7 @@ exports.consumeHandshake = function(buffer, infoHash, peer){
   if( buffer.toString('utf8', 1, buffer.readUInt8(0) + 1) === "BitTorrent protocol" && buffer.slice(28,48).toString('binary') === infoHash.toString('binary')){
     peer.peerID = buffer.slice(48,68).toString();
     peer.receivedHandshake = true;
-    peer.emit('receivedHandshake', peer);
+    peer.emit('receivedHandshake');
   } else {
     peer.disconnect();
   }
