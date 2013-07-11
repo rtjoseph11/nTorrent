@@ -1,16 +1,3 @@
-var numToBitString = function(number){
-  result = '';
-  result += number & 128 ? '1' : '0';
-  result += number & 64 ? '1' : '0';
-  result += number & 32 ? '1' : '0';
-  result += number & 16 ? '1' : '0';
-  result += number & 8 ? '1' : '0';
-  result += number & 4 ? '1' : '0';
-  result += number & 2 ? '1' : '0';
-  result += number & 1 ? '1' : '0';
-  return result;
-};
-
 var bitArrayToNum = function(array){
   var result = 0;
   result += array[0] === 1 ? 128 : 0;
@@ -27,7 +14,14 @@ var bitArrayToNum = function(array){
 var generateBitString = function(buffer){
   var result = '';
   for (var i = 0; i < buffer.length; i++){
-    result += numToBitString(buffer[i]);
+    result += buffer[i] & 128 ? '1' : '0';
+    result += buffer[i] & 64 ? '1' : '0';
+    result += buffer[i] & 32 ? '1' : '0';
+    result += buffer[i] & 16 ? '1' : '0';
+    result += buffer[i] & 8 ? '1' : '0';
+    result += buffer[i] & 4 ? '1' : '0';
+    result += buffer[i] & 2 ? '1' : '0';
+    result += buffer[i] & 1 ? '1' : '0';
   }
   return result;
 };
@@ -51,6 +45,7 @@ var getRequest = function(buffer){
     length: buffer.readUInt32BE(8)
   };
 };
+
 exports.generateHandshake = function(infoHash, clientID){
   var result = new Buffer(68);
   result.writeUInt8(19, 0);

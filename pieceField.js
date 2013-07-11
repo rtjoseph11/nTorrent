@@ -2,47 +2,54 @@ var events = require('events'),
     util = require('util'),
     fs = require('fs'),
     pieceLength,
-    Piece = require('./piece'),
     storage = [],
     peerMap = [],
     banMap = {},
     bitMap = [],
     files = [],
+    Piece = require('./piece')(bitMap),
     totalLength = 0;
+
+var generateFilesMetaData = function(torrentFiles, downloadpath){
+  for (var j = 0; j < torrentFiles.length; j++){
+    if (!fs.existsSync(downloadpath + '/' + torrentFiles[j].path[0].toString())){
+      fs.writeFileSync(downloadpath + '/' + torrentFiles[j].path[0].toString(), new Buffer(0));
+    }
+    files.push({
+      path: downloadpath + '/' + torrentFiles[j].path[0].toString(),
+      length: torrentFiles[j].length,
+      startPosition: totalLength,
+      used: 0
+    });
+    totalLength += torrentFiles[j].length;
+  }
+};
+
+var generateFileMetaData = function(file, length, downloadpath){
+  if (! fs.existsSync(downloadpath + '/' + file.toString())){
+    fs.writeFileSync(downloadpath + '/' + file.toString(), new Buffer(0));
+  }
+  files.push({
+    path: downloadpath + '/' + file.toString(),
+    length: length,
+    startPosition: totalLength,
+    used: 0
+  });
+  totalLength += length;
+};
 
 module.exports = function(torrentInfo){
   var self = this;
   events.EventEmitter.call(self);
-  //piece length is the number of bytes
   pieceLength = torrentInfo['piece length'];
   var downloadpath = __dirname + '/downloads/' + torrentInfo.name.toString();
   if (! fs.existsSync(downloadpath)){
     fs.mkdirSync(downloadpath);
   }
   if (torrentInfo.files){
-    for (var j = 0; j < torrentInfo.files.length; j++){
-      if (! fs.existsSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString())){
-        fs.writeFileSync(downloadpath + '/' + torrentInfo.files[j].path[0].toString(), new Buffer(0));
-      }
-      files.push({
-        path: downloadpath + '/' + torrentInfo.files[j].path[0].toString(),
-        length: torrentInfo.files[j].length,
-        startPosition: totalLength,
-        used: 0
-      });
-      totalLength += torrentInfo.files[j].length;
-    }
+    generateFilesMetaData(torrentInfo.files, downloadpath);
   } else {
-    if (! fs.existsSync(downloadpath + '/' + torrentInfo.name.toString())){
-      fs.writeFileSync(downloadpath + '/' + torrentInfo.name.toString(), new Buffer(0));
-    }
-    files.push({
-      path: downloadpath + '/' + torrentInfo.name.toString(),
-      length: torrentInfo.length,
-      startPosition: totalLength,
-      used: 0
-    });
-    totalLength += torrentInfo.length;
+    generateFileMetaData(torrentInfo.name, torrentInfo.length, downloadpath);
   }
   for (var i = 0; i < torrentInfo.pieces.length; i += 20){
     //ternary is for the last piece which will probably be shorter than the rest of the pieces
@@ -62,36 +69,8 @@ module.exports = function(torrentInfo){
         files[k].used += pieceFiles[pieceFiles.length - 1].writeLength;
       }
     }
-    var piece = new Piece(torrentInfo.pieces.slice(i, i + 20),  curPieceLength, i / 20, pieceFiles, pieceLength);
 
-    piece.on('pieceExists', function(piece){
-      bitMap[piece.index] = 1;
-    });
-
-    piece.on('pieceFinished', function(piece){
-      bitMap[piece.index] = 1;
-      if (bitMap.reduce(function(memo, item){
-        return memo += item;
-      }, 0) === bitMap.length){
-        console.log('torrent finished!!!');
-        self.emit('torrentFinished');
-      } else {
-        self.emit('pieceFinished', piece.index);
-      }
-    });
-
-    piece.on('blockWritten', function(p, peer, block){
-      if (self.isEndGame()){
-        self.emit('cancelBlock', block);
-      }
-      if (!p.completed && !peer.assignedBlock && p.data){
-        p.assignBlock(peer, self.isEndGame());
-      }
-    });
-
-    piece.on('writeFailed', function(){
-      self.checkForPiece();
-    });
+    var piece = new Piece(torrentInfo.pieces.slice(i, i + 20),  curPieceLength, i / 20, pieceFiles, pieceLength, self);
 
     storage[i / 20] = piece;
     bitMap[i / 20] = 0;

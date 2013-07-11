@@ -2,7 +2,31 @@ var crypto = require('crypto');
 var events = require('events');
 var util = require('util');
 var fs = require('fs');
-module.exports = function(sha, length, index, files, standardLength){
+var bitMap;
+var pieceExists = function(piece){
+  bitMap[piece.index] = 1;
+};
+var pieceFinished = function(piece){
+  bitMap[piece.index] = 1;
+  if (bitMap.reduce(function(memo, item){
+    return memo += item;
+  }, 0) === bitMap.length){
+    console.log('torrent finished!!!');
+    this.emit('torrentFinished');
+  } else {
+    this.emit('pieceFinished', piece.index);
+  }
+};
+var blockWritten = function(piece, peer, block){
+  if (this.isEndGame()){
+    this.emit('cancelBlock', block);
+  }
+  if (!piece.completed && !peer.assignedBlock && piece.data){
+    piece.assignBlock(peer, this.isEndGame());
+  }
+};
+
+Piece = function(sha, length, index, files, standardLength, pieceField){
   events.EventEmitter.call(this);
   this.sha = sha;
   this.data = new Buffer(length);
@@ -16,11 +40,15 @@ module.exports = function(sha, length, index, files, standardLength){
   for (var i = 0; i < length; i+= 16384){
     this.blockMap[i] = 0;
   }
+  this.on('pieceExists', pieceExists);
+  this.on('pieceFinished',pieceFinished.bind(pieceField));
+  this.on('blockWritten', blockWritten.bind(pieceField));
+  this.on('writeFailed', pieceField.checkForPiece.bind(pieceField));
 };
 
-util.inherits(module.exports, events.EventEmitter);
+util.inherits(Piece, events.EventEmitter);
 
-module.exports.prototype.writeBlock = function(block, peer){
+Piece.prototype.writeBlock = function(block, peer){
   if (block.index !== this.index){
     throw new Error('indices did not match up: ' + this.index + ", " + block.index);
   } else if (!this.completed){
@@ -45,7 +73,7 @@ module.exports.prototype.writeBlock = function(block, peer){
   }
 };
 
-module.exports.prototype.assignBlock = function(peer, isEndGame){
+Piece.prototype.assignBlock = function(peer, isEndGame){
   if (!peer.assignedBlock && !this.completed && this.data){
     for (var begin in this.blockMap){
       if (!this.blockPeers[begin] || isEndGame){
@@ -66,7 +94,62 @@ module.exports.prototype.assignBlock = function(peer, isEndGame){
   }
 };
 
-module.exports.prototype.getBlock = function(begin, length){
+Piece.prototype.validate = function(){
+  if (crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
+    console.log('succesfully received piece ', this.index);
+    this.completed = true;
+    this.writeToDisk();
+  } else {
+    this.blockMap = {};
+    this.blockPeers = {};
+    for (var i = 0; i < this.data.length; i+= 16384){
+      this.blockMap[i] = 0;
+    }
+    console.log('failed to download piece ', this.index);
+    this.emit('writeFailed');
+  }
+};
+
+Piece.prototype.writeToDisk = function(){
+  var used = 0;
+  var i;
+  var writerSuccess = function(){
+    if (i === this.files.length){
+      this.emit('pieceFinished', this);
+    }
+  };
+  for (i = 0; i < this.files.length; i++){
+    var pieceWriter = fs.createWriteStream(this.files[i].path, {start: this.files[i].start, flags: 'r+'});
+    pieceWriter.end(this.data.slice(used, used + this.files[i].writeLength), writerSuccess.bind(this));
+    used += this.files[i].writeLength;
+  }
+  delete this.data;
+};
+
+Piece.prototype.readFromDisk = function(){
+  var used = 0;
+  for(var i = 0; i < this.files.length; i++){
+    if (fs.existsSync(this.files[i].path)){
+      var fd = fs.openSync(this.files[i].path, 'r');
+      fs.readSync(fd, this.data, used, this.files[i].writeLength, this.files[i].start);
+      used += this.files[i].writeLength;
+      fs.closeSync(fd);
+    }
+  }
+  if(crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
+    this.completed = true;
+    delete this.data;
+    this.emit('pieceExists', this);
+  } else {
+    this.blockMap = {};
+    this.blockPeers = {};
+    for (var j = 0; j < this.data.length; j+= 16384){
+      this.blockMap[j] = 0;
+    }
+  }
+};
+
+Piece.prototype.getBlock = function(begin, length){
   var data = new Buffer(length);
   var used = 0;
   var fd;
@@ -91,56 +174,7 @@ module.exports.prototype.getBlock = function(begin, length){
   };
 };
 
-module.exports.prototype.validate = function(){
-  if (crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
-    console.log('succesfully received piece ', this.index);
-    this.completed = true;
-    this.writeToDisk();
-  } else {
-    this.blockMap = {};
-    this.blockPeers = {};
-    for (var i = 0; i < this.data.length; i+= 16384){
-      this.blockMap[i] = 0;
-    }
-    console.log('failed to download piece ', this.index);
-    this.emit('writeFailed');
-  }
-};
-
-module.exports.prototype.writeToDisk = function(){
-  var self = this;
-  var used = 0;
-    for (var i = 0; i < self.files.length; i++){
-      var pieceWriter = fs.createWriteStream(self.files[i].path, {start: self.files[i].start, flags: 'r+'});
-      pieceWriter.end(self.data.slice(used, used + self.files[i].writeLength), function(){
-        if (i === self.files.length){
-          self.emit('pieceFinished', self);
-        }
-      });
-      used += self.files[i].writeLength;
-    }
-  delete self.data;
-};
-
-module.exports.prototype.readFromDisk = function(){
-  var used = 0;
-  for(var i = 0; i < this.files.length; i++){
-    if (fs.existsSync(this.files[i].path)){
-      var fd = fs.openSync(this.files[i].path, 'r');
-      fs.readSync(fd, this.data, used, this.files[i].writeLength, this.files[i].start);
-      used += this.files[i].writeLength;
-      fs.closeSync(fd);
-    }
-  }
-  if(crypto.createHash('sha1').update(this.data).digest().toString('hex') === this.sha.toString('hex')){
-    this.completed = true;
-    delete this.data;
-    this.emit('pieceExists', this);
-  } else {
-    this.blockMap = {};
-    this.blockPeers = {};
-    for (var j = 0; j < this.data.length; j+= 16384){
-      this.blockMap[j] = 0;
-    }
-  }
+module.exports = function(_bitMap){
+  bitMap = _bitMap;
+  return Piece;
 };

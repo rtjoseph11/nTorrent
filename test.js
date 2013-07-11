@@ -1,11 +1,9 @@
-//use a config file for constants like sha1 piece length and ip address buffers;
-//use a config file for console logs
 var fs = require('fs');
-if (! fs.existsSync(__dirname + '/' + process.argv[2])){
-  throw new Error('torrent file ' + process.argv[2] + " doesn't exist!");
+if (! fs.existsSync(__dirname + '/testdata/test.torrent')){
+  throw new Error("torrent file doesn't exist!");
 }
 
-if (! process.argv[3] || isNaN(process.argv[3]) || !process.argv[4]){
+if (! process.argv[2] || isNaN(process.argv[2]) || !process.argv[3]){
   throw new Error('need to provide a port to listen on and indicate seed status');
 }
 
@@ -13,8 +11,8 @@ var bencode = require('bencode'),
     crypto = require('crypto'),
     Peers = require('./peers'),
     net = require('net'),
-    port = process.argv[3],
-    torrent = bencode.decode(fs.readFileSync(__dirname + '/' + process.argv[2])),
+    port = process.argv[2],
+    torrent = bencode.decode(fs.readFileSync(__dirname + '/testdata/test.torrent')),
     infoHash = crypto.createHash('sha1').update(bencode.encode(torrent.info)).digest(),
     PieceField = require('./pieceField'),
     pieceField = new PieceField(torrent.info),
@@ -54,22 +52,15 @@ client.listen(port, function(){
   console.log('client bound to port ', port);
 });
 
-var delayedRequest = function(uri, delay){
-  setTimeout(function(){
-    utils.HTTPTrackerRequest(uris[i], torrentFinished);
-  }, delay);
-};
 
-if(!torrentFinished){
-  for (var i = 0; i < uris.length; i++){
-    console.log('requesting peers from ', uris[i]);
-    utils.HTTPTrackerRequest(uris[i], torrentFinished);
-    if (!torrentFinished && peers.numConnected() < 500){
-      console.log('requesting peers in 60 seoncds');
-      delayedRequest(uris[i], 60000);
-    }
-  }
-}
+var buf = new Buffer(6);
+buf.writeUInt8(192, 0);
+buf.writeUInt8(168, 1);
+buf.writeUInt8(1, 2);
+buf.writeUInt8(10, 3);
+buf.writeUInt16BE(process.argv[process.argv.length - 1], 4);
+var sandboxPeer = new Peer(buf);
+peers.add(sandboxPeer, buf);
 
 pieceField.on('torrentFinished', function(){
   console.log('torrent took ', ((new Date()) - start) / 60000 , ' minutes to download!');
@@ -77,3 +68,4 @@ pieceField.on('torrentFinished', function(){
     process.exit();
   }
 });
+
