@@ -10,9 +10,8 @@
       "email": "rtjoseph11@gmail.com"
     } 
   ],
-  "private" : false,
    "bin": {
-    "nTorrent": "./bin/http-server"
+    "nTorrent": "./bin/nTorrent"
   },
   "dependencies" : {
     "bencode" : "0.4.3",

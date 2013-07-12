@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+
+var app = require('../lib/client');
+ 
+var torrentPath;
+if (process.argv.length > 2) {
+    if(process.argv[2][0] === '~'){
+      torrentPath = process.argv[2];
+    }
+    else {
+      torrentPath  = __dirname + '/' + process.argv[2];
+    }
+    app.init(torrentPath);
+}
