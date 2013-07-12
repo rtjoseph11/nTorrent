@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 
 var app = require('../lib/client');
- console.log('args: ', process.argv);
 var torrentPath;
 if (process.argv.length > 2) {
-    if(process.argv[2][0] === '~'){
-      torrentPath = process.argv[2];
-      app.init(torrentPath);
-    }
-    else if(process.argv[2] !== 'test'){
-      torrentPath  = __dirname + '/' + process.argv[2];
+    if(process.argv[2] !== 'test'){
+      torrentPath  = process.argv[2];
       app.init(torrentPath);
     } else if (process.argv[2] === 'test'){
       app.testInit(__dirname + '/../test.torrent', process.argv[process.argv.length - 2].split('.'), process.argv[process.argv.length - 1]);
