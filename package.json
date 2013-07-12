@@ -1,8 +1,9 @@
 {
-  "name" : "nTorrent",
+  "name": "ntorrent",
+  "analyze" : true,
   "preferGlobal": true,
-  "description" : "BitTorrent client in node.js",
-  "version" : "0.1.0",
+  "description": "BitTorrent client in node.js",
+  "version": "0.0.2",
   "author": "rtjoseph11 <rtjoseph11@gmail.com>",
   "contributors": [ 
     {
@@ -10,13 +11,15 @@
       "email": "rtjoseph11@gmail.com"
     } 
   ],
-   "bin": {
+  "dependencies": {
+    "bencode": "0.4.3",
+    "request": "2.21.0"
+  },
+  "bin": {
     "nTorrent": "./bin/nTorrent"
   },
-  "dependencies" : {
-    "bencode" : "0.4.3",
-    "request" : "2.21.0"
-  },
+  "main": "./lib/client",
+  "engine": "node 0.10.10",
   "repository": {
     "type": "git",
     "url": "https://github.com/rtjoseph11/nTorrent.git"
@@ -25,8 +28,5 @@
     "cli",
     "bitTorrent"
   ],
-  "license": "MIT",
-  "engines": {
-    "node": ">=0.10"
-  }
+  "license": "MIT"
 }
