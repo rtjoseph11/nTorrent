@@ -1,6 +1,5 @@
 //must end in a /
-exports.downloadpath = __dirname + '/downloads/';
-// exports.downloadpath = '~/downloads/';
+exports.downloadpath = '~/downloads/';
 
 //port the client will listen on
 exports.port = 6881;
