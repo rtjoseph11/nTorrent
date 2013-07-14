@@ -11,12 +11,20 @@ var argv = require('optimist')
           .argv;
 var app = require('../lib/client');
 var fs = require('fs');
-var config = JSON.parse(fs.readFileSync('../lib/config.txt'));
-if (argv._[0] === 'config'){
+var config = JSON.parse(fs.readFileSync(__dirname + '/../lib/config.txt'));
+if (argv._[0] === 'config' && !argv.p && !argv.d && argv.s === undefined){
+  console.log(config);
+} else if (argv._[0] === 'config'){
   config.port = argv.p ? argv.p : config.port;
   config.downloadpath = argv.d ? argv.d : config.downloadpath;
   config.seed = argv.s ? argv.s : config.seed;
-  fs.writeFileSync(__dirname + '/../lib/config.txt', JSON.stringify(config));
+  try {
+    fs.writeFileSync(__dirname + '/../lib/config.txt', JSON.stringify(config));
+  } catch(e){
+    if(e.code === "EACCES"){
+      console.log('please rerun this command as root/admin');
+    }
+  }
 } else if (!config.downloadpath){
   console.log('must set downloadpath using ntorrent config -d [yourdownloadpath]');
 } else if (!fs.existsSync(config.downloadpath)){
@@ -24,7 +32,7 @@ if (argv._[0] === 'config'){
 } else if(!config.port){
   console.log('must set the port the app will listen on');
 } else {
-  if(argv._[0] !== 'test'){
+  if(argv._[0] && argv._[0] !== 'test'){
     app.init(argv._[0]);
   } else if (argv._[0] === 'test'){
     app.testInit(__dirname + '/../test.torrent', process.argv[process.argv.length - 2].split('.'), process.argv[process.argv.length - 1]);
