@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 var argv = require('optimist')
-          .usage('use ntorrent config with -d/-p/-s to set app configuration \nuse ntorrent [pathtoTorrentFile] to start a download')
           .alias('d', 'downloadpath')
           .describe('d', 'set downloadpath (e.g /Users/yourname/Downloads/) must end in a /')
           .alias('p', 'port')
@@ -12,7 +11,9 @@ var argv = require('optimist')
 var app = require('../lib/client');
 var fs = require('fs');
 var config = JSON.parse(fs.readFileSync(__dirname + '/../lib/config.txt'));
-if (argv._[0] === 'config' && !argv.p && !argv.d && argv.s === undefined){
+if (argv._.length === 0){
+  console.log('use ntorrent config with -d/-p/-s to set app configuration \nuse ntorrent [pathtoTorrentFile] to start a download');
+} else if (argv._[0] === 'config' && !argv.p && !argv.d && argv.s === undefined){
   console.log(config);
 } else if (argv._[0] === 'config'){
   config.port = argv.p ? argv.p : config.port;
@@ -29,6 +30,8 @@ if (argv._[0] === 'config' && !argv.p && !argv.d && argv.s === undefined){
   console.log('must set downloadpath using ntorrent config -d [yourdownloadpath]');
 } else if (!fs.existsSync(config.downloadpath)){
   console.log('your downloadpath ' + config.downloadpath + 'does not exist');
+} else if(config.downloadpath[config.downloadpath.length] !== '/'){
+  console.log('you downloadpath ' + config.downloadpath + 'does end in /');
 } else if(!config.port){
   console.log('must set the port the app will listen on');
 } else {
