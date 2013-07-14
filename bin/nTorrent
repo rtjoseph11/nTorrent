@@ -37,8 +37,8 @@ if (argv._.length === 0){
 } else {
   if(argv._[0] && argv._[0] !== 'test'){
     app.init(argv._[0]);
-  } else if (argv._[0] === 'test'){
-    app.testInit(__dirname + '/../test.torrent', process.argv[process.argv.length - 2].split('.'), process.argv[process.argv.length - 1]);
+  } else if (argv._[0] === 'test' && argv._[1] && argv._[2]){
+    app.testInit(__dirname + '/../test.torrent', argv._[1].split('.'), argv._[2]);
   }
 }
 
