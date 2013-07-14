@@ -1,45 +1,27 @@
 nTorrent
 ============
 
-goal
-
-basic bitTorrent client written in node.js that you can run from the command line
-
-============
-
-status
-
-able to download as well as seed files.
-
-only able to make requests to http trackers, some of which the client works with and some which don't.
-I've been testing using the fedora tracker.
-
-developed using node .10.10
-does not work with node .8 because the crypto module does not return buffers after digest()
-
-============
-
 how to use
 
-after cloning the repo run npm install, then
-from the command line:
-node client.js /path/to/torrentFile [port you want to listen on] [seed/noseed]
-example: node client.js ./testdata/linuxmint.torrent 6881 seed
+npm install ntorrent -g
 
-the files will be downloaded to the /downloads directory which is in the same directory as client.js
+ntorrent config -d pathToYourDownloadsFolder
 
+ntorrent pathToTorrentFile
+
+commands:
+
+ntorrent config -d [your download path (filepath string)] -p [port to listen on (int)] -s [seed (true | false)]
+  this will override the download path, port the client listens on, and whether or not to seed
+
+ntorrent torrentfilepath
+  start a torrent based on the torrent file specified at torrentfilepath
 
 ============
+status
 
-enhancements
+developed using node .10.10
 
-write tests
+does not work with node .8 because the crypto module does not return buffers after digest()
 
-implement retrieving pieces by scarcity
-
-implement udp tracker requests
-
-when reading from disk for sending blocks, do so asynchronously
-
-log stats at the end
-(number of peers downloaded from, number of each type of message sent and received)
+UDP trackers are not supported!  make sure you pick a torrentfile which has an http tracker.
