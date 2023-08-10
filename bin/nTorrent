@@ -30,7 +30,7 @@ if (argv._.length === 0){
   console.log('must set downloadpath using ntorrent config -d [yourdownloadpath]');
 } else if (!fs.existsSync(config.downloadpath)){
   console.log('your downloadpath ' + config.downloadpath + 'does not exist');
-} else if(config.downloadpath[config.downloadpath.length] !== '/'){
+} else if(config.downloadpath[config.downloadpath.length - 1] !== '/'){
   console.log('you downloadpath ' + config.downloadpath + 'does end in /');
 } else if(!config.port){
   console.log('must set the port the app will listen on');
